@@ -11,6 +11,10 @@
 (ns net.cgrand.enlive-html
   (:require [clojure.xml :as xml]))
 
+;; enlive-html is a selector-based templating engine
+;;
+;; EXAMPLES: see net.cgrand.enlive-html.examples
+
 ;; HTML I/O stuff
 
 (defn- startparse-tagsoup [s ch]
@@ -224,19 +228,3 @@
  [name path args & forms]
   (let [xml (load-html-resource path)]
     `(defn ~name ~args (flatten (apply-template-macro ~xml (at ~@forms))))))
-
-;; examples
-(comment
-
-(deftemplate example "home/example.html" [title posts]
-  [:title] title
-  [:h1] title
-  [:div.no-msg] (when-not (seq posts) ~(show))
-  [:div.post] (for [{:keys [title body]} posts]
-           ~(at
-              [:h2] title
-              [:p] body)))
-
-(apply str (example "Hello group!" [{:title "post #1" :body "hello with dangerous chars: <>&"} {:title "post #2" :body "dolor ipsum"}]))
-
-); end of examples
