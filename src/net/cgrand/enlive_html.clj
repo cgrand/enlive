@@ -9,7 +9,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html
-  (:require [clojure.xml :as xml]))
+  (:require [clojure.xml :as xml])
+  (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]]))
 
 ;; enlive-html is a selector-based templating engine
 ;;
@@ -70,30 +71,45 @@
     (seq? node) [node] ; it's code
     :else [(xml-str node)]))
 
-(defn- merge-str [coll]
-  (when (seq coll)
-    (let [[strs etc] (split-with string? coll)]
-      (if strs
-        (lazy-cons (apply str strs) (merge-str etc))
-        (lazy-cons (first coll) (merge-str (rest coll)))))))
+(with-test
+  (defn- merge-str [coll]
+    (when (seq coll)
+      (let [[strs etc] (split-with string? coll)]
+        (if strs
+          (lazy-cons (apply str strs) (merge-str etc))
+          (lazy-cons (first coll) (merge-str (rest coll)))))))
 
+  ;; tests
+  (is (= (merge-str ["ab" "cd" ["fe"] "gh" \c "i" "j"])
+        ["abcd" ["fe"] "gh" \c "ij"])))
 
 ;;
 (defn- unquote? [form]
   (and (seq? form) (= (first form) `unquote)))
-            
-(defn- replace-unquote [form replacement-fn]
-  (let [replace 
-         (fn replace [form]
-           (cond 
-             (unquote? form) (replacement-fn (second form))
-             (seq? form) (map replace form)
-             (vector? form) (vec (map replace form))
-             (map? form) (into {} (map (fn [[k v]] 
-                                         [(replace k) (replace v)]) form))
-             (set? form) (set (map replace form))
-             :else form))]
-    (replace form)))      
+          
+(with-test  
+  (defn- replace-unquote [form replacement-fn]
+    (let [replace 
+           (fn replace [form]
+             (cond 
+               (unquote? form) (replacement-fn (second form))
+               (seq? form) (map replace form)
+               (vector? form) (vec (map replace form))
+               (map? form) (into {} (map (fn [[k v]] 
+                                           [(replace k) (replace v)]) form))
+               (set? form) (set (map replace form))
+               :else form))]
+      (replace form)))      
+
+  ;; tests
+  (is (= (replace-unquote '(fred ethel ~someone) (constantly 'lucy))
+        '(fred ethel lucy)))
+  (is (= (replace-unquote '(fred [ethel ~someone]) (constantly 'lucy))
+        '(fred [ethel lucy])))
+  (is (= (replace-unquote '(fred {ethel ~someone}) (constantly 'lucy))
+        '(fred {ethel lucy})))
+  (is (= (replace-unquote '(fred {~someone ethel}) (constantly 'lucy))
+        '(fred {lucy ethel}))))
 
 ;;
 (declare template-macro)
@@ -110,21 +126,46 @@
       (let [macro-fn# (fn ~bindings ~@forms)]
         (apply list `template-macro macro-fn# args#)))))   
 
-(defn- expand-til-template-macro [xml form]
-  (if (seq? form)
-    (let [x (first form)]  
-      (if (and (symbol? x) (= (resolve x) #'template-macro))
-        (apply (second form) xml (rrest form))
-        (let [ex-form (macroexpand-1 form)]
-          (if (= ex-form form)
-            (replace-unquote form #(list `apply-template-macro xml %)) 
-            (recur xml ex-form)))))
-    (recur xml (list `text form))))
+(deftemplate-macro text [xml & forms]
+  (if (tag? xml)
+    (assoc xml :content [`(xml-str ~@forms)])
+    `(xml-str ~@forms)))
+     
+(with-test
+  (defn- expand-til-template-macro [xml form]
+    (if (seq? form)
+      (let [x (first form)]  
+        (if (and (symbol? x) (= (resolve x) #'template-macro))
+          (apply (second form) xml (rrest form))
+          (let [ex-form (macroexpand-1 form)]
+            (if (= ex-form form)
+              (replace-unquote form #(list `apply-template-macro xml %)) 
+              (recur xml ex-form)))))
+      (recur xml (list `text form))))
+
+  ;; tests    
+  (is (= (expand-til-template-macro 'XML '(unexpandable-form))
+        '(unexpandable-form)))
+  (is (= (expand-til-template-macro 'XML '(unexpandable-form (with-nested ~ops)))
+        '(unexpandable-form (with-nested (net.cgrand.enlive-html/apply-template-macro XML ops)))))
+  (is (= (expand-til-template-macro 'XML (list `text 'hello 'world))
+        '(net.cgrand.enlive-html/xml-str hello world)))
+  (is (= (expand-til-template-macro 'XML 'a-symbol)
+        '(net.cgrand.enlive-html/xml-str a-symbol))))
+        
+
+;(with-test  ; commented out because of demacro forms returning nil      
+  (defmacro apply-template-macro 
+   [xml form]
+    (let [code (expand-til-template-macro xml form)]
+      (cons `list (-> code compile-node merge-str))))
       
-(defmacro apply-template-macro 
- [xml form]
-  (let [code (expand-til-template-macro xml form)]
-    (cons `list (-> code compile-node merge-str))))
+(set-test apply-template-macro
+  ;;tests
+  (is (= (macroexpand-1 (list `apply-template-macro 
+                          {:tag :hello :content ["world" '(some code)] :attrs {:a "b"}}
+                          (list `template-macro (fn [x & _] x))))
+        '(clojure.core/list "<hello a=\"b\">world" (some code) "</hello>"))))
 
 (defmacro do->
  "Chains (composes) several template-macros."
@@ -137,11 +178,6 @@
 (defn tag? [node]
   (map? node))
 
-(deftemplate-macro text [xml & forms]
-  (if (tag? xml)
-    (assoc xml :content [`(xml-str ~@forms)])
-    `(xml-str ~@forms)))
-     
 (deftemplate-macro show [xml]
   xml)
      
@@ -158,7 +194,7 @@
       (assoc xml :attrs attrs)) 
     xml))
      
-;; the "at" template-macro: a css-like
+;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
 (defn- step-selectors [selectors-actions node]
   (let [results (map (fn [[sel act]] (conj (sel node) act)) selectors-actions)
         next-sels-actions (mapcat (fn [[sels _ act]] (for [sel sels] [sel act])) results)
@@ -198,6 +234,15 @@
     (fn [x]
       (and (tag? x) (every? identity (map #(% x) preds))))))
 
+(defn- compile-selector-step [form]
+  (cond 
+    (seq? form) 
+      (eval `(fn [x#] (~(first form) x# ~@(rest form))))
+    (keyword? form)
+      (compile-keyword form)
+    :else 
+      (eval form)))   
+
 (defn- compile-selector
  "Evals a selector form. If the form is anything but a vector,
   it's simply evaluated. If the form is a vector, each element
@@ -208,16 +253,13 @@
  [selector-form]
   (if-not (vector? selector-form)
     (eval selector-form)
-    (let [preds (map #(cond 
-                        (seq? %) 
-                          (eval `(fn [x#] (~(first %) x# ~@(rest %))))
-                        (keyword? %)
-                          (compile-keyword %)
-                        :else 
-                          (eval %)) selector-form)]
+    (let [preds (map compile-selector-step selector-form)]
       (chain-preds preds))))
-   
-(deftemplate-macro at [xml & forms]
+               
+  
+(deftemplate-macro at
+ "Allows to apply other template-macros to subtrees using selectors." 
+ [xml & forms]
   (let [selectors-actions (map (fn [[k v]] [(compile-selector k) v]) 
                             (partition 2 forms))]
     (apply transform-node xml (step-selectors selectors-actions xml))))
