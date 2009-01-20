@@ -37,7 +37,7 @@
 (defn flatten 
  "Flattens nested lists."
  [s]
-  (remove seq? (tree-seq seq? seq s)))
+  (remove #(or (seq? %) (nil? %)) (tree-seq seq? seq s)))
 
 (defn xml-str
  "Like clojure.core/str but escapes < > and &."
