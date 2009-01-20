@@ -18,6 +18,9 @@
 
 ;; HTML I/O stuff
 
+(defn tag? [node]
+  (map? node))
+
 (defn- startparse-tagsoup [s ch]
   (let [p (org.ccil.cowan.tagsoup.Parser.)]
     (.setFeature p "http://www.ccil.org/~cowan/tagsoup/features/default-attributes" false)
@@ -175,9 +178,6 @@
     `(template-macro ~f)))  
 
 ;; simple template macros
-(defn tag? [node]
-  (map? node))
-
 (deftemplate-macro show [xml]
   xml)
      
