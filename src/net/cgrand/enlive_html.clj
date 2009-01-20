@@ -268,5 +268,8 @@
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
  [name path args & forms]
-  (let [xml (load-html-resource path)]
-    `(defn ~name ~args (flatten (apply-template-macro ~xml (at ~@forms))))))
+  (let [xml (load-html-resource path)
+        main-form (if (rest forms)
+                    `(at ~@forms)
+                    (first forms))]
+    `(defn ~name ~args (flatten (apply-template-macro ~xml ~main-form)))))
