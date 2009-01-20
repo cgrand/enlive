@@ -10,9 +10,10 @@
               [:h2] title
               [:p] body)))
 
-(apply str (microblog-template "Hello user!" 
-             [{:title "post #1" 
-               :body "hello with dangerous chars: <>&"}
-              {:title "post #2" 
-               :body "dolor ipsum"}]))
+(comment
+  (apply str (microblog-template "Hello user!" 
+               [{:title "post #1" 
+                 :body "hello with dangerous chars: <>&"}
+                {:title "post #2" 
+                 :body "dolor ipsum"}])))
  
