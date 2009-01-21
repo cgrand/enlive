@@ -200,34 +200,47 @@
      (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms)))) 
      
 ;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
-(defn- step-selectors [selectors-actions node]
-  (let [results (map (fn [[sel act]] (conj (sel node) act)) selectors-actions)
-        next-sels-actions (mapcat (fn [[sels _ act]] (for [sel sels] [sel act])) results)
-        action (first (for [[_ ok act] results :when ok] act))]
-    [next-sels-actions action]))
+(defn- step-selector [selector node]
+  (selector node))
+
+(defn- null-selector [_]
+  [null-selector false]) 
+
+(defn- merge-selectors 
+  ([] null-selector)
+  ([selector] selector)
+  ([selector & selectors]
+    (fn [node]
+      (let [results (map #(% node) (cons selector selectors))]
+        [(apply merge-selectors (map first results))
+         (some identity (map second results))]))))
 
 (declare transform-node)  
 
-(defn- transform-tag [{:keys [content] :as node} selectors-actions action]
-  (if action
-    `(apply-template-macro ~node ~action)
-    (assoc node
-      :content (vec (map #(apply transform-node % (step-selectors selectors-actions % )) content)))))
+(defn- transform-tag [{:keys [content] :as node} selector action]
+  (let [transformed-node
+         (assoc node :content 
+           (vec (map #(apply transform-node % (step-selector selector %)) 
+                  content)))] 
+    (if action
+      `(apply-template-macro ~transformed-node ~action)
+      transformed-node)))
       
 (defn- transform-node [node selectors-actions action]
   (if (tag? node)
     (transform-tag node selectors-actions action)
     node))
 
-(defn- chain-preds [preds]
+(defn- chain-preds 
+ [preds action]
   (let [[last-pred & rpreds] (reverse preds)
         last-selector (fn this [node]
-                        [[this] (last-pred node)])
+                        [this (when (last-pred node) action)])
         chain-pred-selector (fn [selector pred] 
                               (fn this [node]
                                 (if (pred node)
-                                  [[selector this] false]
-                                  [[this] false])))]
+                                  [(merge-selectors selector this) false]
+                                  [this false])))]
     (reduce chain-pred-selector last-selector rpreds)))
 
 (defn- compile-keyword [kw]
@@ -255,26 +268,25 @@
   There's special rules for keywords (see compile-keyword) and
   lists ((a b c) yields #(a % b)).
   Predicates are chained in a hierarchical way à la CSS."
- [selector-form]
+ [selector-form action]
   (if-not (vector? selector-form)
     (eval selector-form)
     (let [preds (map compile-selector-step selector-form)]
-      (chain-preds preds))))
+      (chain-preds preds action))))
                
   
 (deftemplate-macro at
  "Allows to apply other template-macros to subtrees using selectors." 
  [xml & forms]
-  (let [selectors-actions (map (fn [[k v]] [(compile-selector k) v]) 
-                            (partition 2 forms))]
-    (apply transform-node xml (step-selectors selectors-actions xml))))
+  (let [selector (apply merge-selectors (map #(apply compile-selector %) 
+                                          (partition 2 forms)))]
+    (apply transform-node xml (step-selector selector xml))))
 
 ;; main macro
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
- [name path args & forms]
-  (let [xml (load-html-resource path)
-        main-form (if (rest forms)
-                    `(at ~@forms)
-                    (first forms))]
-    `(defn ~name ~args (flatten (apply-template-macro ~xml ~main-form)))))
+ ([name path args form]
+  (let [xml (load-html-resource path)]
+    `(defn ~name ~args (flatten (apply-template-macro ~xml ~form)))))
+ ([name path args form & forms] 
+   `(deftemplate ~name ~path ~args (at ~form ~@forms))))
