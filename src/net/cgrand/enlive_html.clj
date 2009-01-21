@@ -198,15 +198,21 @@
   `(list
      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n" 
      (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms)))) 
-     
-;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
-(defn- step-selector [selector node]
+
+;; selectors stuff
+(defn- step-selector
+ "Selectors are states in an infinite state machine
+  and step-selector is their transition function.
+  Returns [new-selector action-or-nil]." 
+ [selector node]
   (selector node))
 
 (defn- null-selector [_]
   [null-selector false]) 
 
-(defn- merge-selectors 
+(defn- merge-selectors
+ "Returns the union of supplied selectors. When succesful a merged selector 
+  returns the action of its leftmost successful selector."   
   ([] null-selector)
   ([selector] selector)
   ([selector & selectors]
@@ -214,6 +220,34 @@
       (let [results (map #(% node) (cons selector selectors))]
         [(apply merge-selectors (map first results))
          (some identity (map second results))]))))
+
+(defn- self-selector [pred action]
+ "Returns a selector that matches only the current node (and it needs to 
+  satisfy the supplied predicate."
+  (fn this [node]
+    [null-selector (when (pred node) action)])) 
+
+(defn- self-or-descendants-selector [pred action]
+ "Returns a selector that matches the current node or any of its descendants
+  as long as they satisfy the supplied predicate."
+  (fn this [node]
+    [this (when (pred node) action)])) 
+
+(defn- chain-selectors
+ "Composes selectors from left to right."  
+  ([] null-selector)
+  ([selector] selector)
+  ([selector & next-selectors]
+    (let [next-selector (chain-selectors next-selectors)]
+      (fn [node]
+        (let [[subselector r] (selector node)
+              chained-subselector (chain-selectors subselector next-selector)]
+          (if r
+            [(merge-selectors next-selector chained-subselector) false] 
+            [chained-subselector false]))))))
+
+     
+;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
 
 (declare transform-node)  
 
@@ -231,19 +265,7 @@
     (transform-tag node selectors-actions action)
     node))
 
-(defn- chain-preds 
- [preds action]
-  (let [[last-pred & rpreds] (reverse preds)
-        last-selector (fn this [node]
-                        [this (when (last-pred node) action)])
-        chain-pred-selector (fn [selector pred] 
-                              (fn this [node]
-                                (if (pred node)
-                                  [(merge-selectors selector this) false]
-                                  [this false])))]
-    (reduce chain-pred-selector last-selector rpreds)))
-
-(defn- compile-keyword [kw]
+(defn- keyword-pred [kw]
   (let [segments (.split (name kw) "(?=[#.])")
         preds (map (fn [#^String s] (condp = (first s)
                       \. #(-> % :attrs (:class "") (.split "\\s+") set (get (.substring s 1))) 
@@ -257,7 +279,7 @@
     (seq? form) 
       (eval `(fn [x#] (~(first form) x# ~@(rest form))))
     (keyword? form)
-      (compile-keyword form)
+      (keyword-pred form)
     :else 
       (eval form)))   
 
@@ -265,14 +287,22 @@
  "Evals a selector form. If the form is anything but a vector,
   it's simply evaluated. If the form is a vector, each element
   is expected to evaluate to a predicate on nodes.
-  There's special rules for keywords (see compile-keyword) and
+  There's special rules for keywords (see keyword-pred) and
   lists ((a b c) yields #(a % b)).
   Predicates are chained in a hierarchical way à la CSS."
  [selector-form action]
   (if-not (vector? selector-form)
     (eval selector-form)
-    (let [preds (map compile-selector-step selector-form)]
-      (chain-preds preds action))))
+    (loop [items (seq selector-form) 
+           selector-type self-or-descendants-selector
+           selectors []]
+      (if-let [[x & xs] items]
+        (if (= :> x)
+          (recur xs self-selector selectors)
+          (let [pred (compile-selector-step x)]
+            (recur xs self-or-descendants-selector
+              (conj selectors (selector-type pred action)))))
+        (apply chain-selectors selectors))))) 
                
   
 (deftemplate-macro at
