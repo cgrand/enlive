@@ -207,45 +207,100 @@
  [selector node]
   (selector node))
 
+(defn- run-selector
+ "For testing purpose."
+  [sel s]
+   (second (reduce #(step-selector (first %1) %2) [sel] s)))
+   
 (defn- null-selector [_]
   [null-selector false]) 
 
-(defn- merge-selectors
- "Returns the union of supplied selectors. When succesful a merged selector 
-  returns the action of its leftmost successful selector."   
-  ([] null-selector)
-  ([selector] selector)
-  ([selector & selectors]
-    (fn [node]
-      (let [results (map #(% node) (cons selector selectors))]
-        [(apply merge-selectors (map first results))
-         (some identity (map second results))]))))
+(with-test
+  (defn- self-selector [pred action]
+   "Returns a selector that matches only the current node (and it needs to 
+    satisfy the supplied predicate."
+    (fn this [node]
+      [null-selector (when (pred node) action)]))
+      
+  ;; tests
+  (let [sel (self-selector #(= % :a) true)]
+    (is (run-selector sel [:a])) 
+    (is (not (run-selector sel [:b])))
+    (is (not (run-selector sel [:a :b])))
+    (is (not (run-selector sel [:b :a])))
+    (is (not (run-selector sel [:b :c])))))
 
-(defn- self-selector [pred action]
- "Returns a selector that matches only the current node (and it needs to 
-  satisfy the supplied predicate."
-  (fn this [node]
-    [null-selector (when (pred node) action)])) 
+(with-test
+  (defn- self-or-descendants-selector [pred action]
+   "Returns a selector that matches the current node or any of its descendants
+    as long as they satisfy the supplied predicate."
+    (fn this [node]
+      [this (when (pred node) action)])) 
+      
+  ;; tests
+  (let [sel (self-or-descendants-selector #(= % :a) true)]
+    (is (run-selector sel [:a])) 
+    (is (not (run-selector sel [:b])))
+    (is (not (run-selector sel [:a :b])))
+    (is (run-selector sel [:b :a]))
+    (is (not (run-selector sel [:b :c]))) 
+    (is (run-selector sel [:b :c :a]))
+    (is (not (run-selector sel [:b :a :c]))))) 
 
-(defn- self-or-descendants-selector [pred action]
- "Returns a selector that matches the current node or any of its descendants
-  as long as they satisfy the supplied predicate."
-  (fn this [node]
-    [this (when (pred node) action)])) 
-
-(defn- chain-selectors
- "Composes selectors from left to right."  
-  ([] null-selector)
-  ([selector] selector)
-  ([selector & next-selectors]
-    (let [next-selector (chain-selectors next-selectors)]
+(with-test
+  (defn- merge-selectors
+   "Returns the union of supplied selectors. When succesful a merged selector 
+    returns the action of its leftmost successful selector."   
+    ([] null-selector)
+    ([selector] selector)
+    ([selector & selectors]
       (fn [node]
-        (let [[subselector r] (selector node)
-              chained-subselector (chain-selectors subselector next-selector)]
-          (if r
-            [(merge-selectors next-selector chained-subselector) false] 
-            [chained-subselector false]))))))
+        (let [results (map #(% node) (cons selector selectors))]
+          [(apply merge-selectors (map first results))
+           (some identity (map second results))]))))
+  
+  ;; tests         
+  (let [sel-a (self-or-descendants-selector #(= % :a) :true-a)
+        sel-b (self-or-descendants-selector #(= % :b) :true-b)
+        sel (merge-selectors sel-a sel-b)]
+    (is (= :true-a (run-selector sel [:a]))) 
+    (is (= :true-b (run-selector sel [:b])))
+    (is (not (run-selector sel [:c])))
+    (is (= :true-b (run-selector sel [:a :b])))
+    (is (= :true-a (run-selector sel [:c :a])))
+    (is (not (run-selector sel [:b :c]))) 
+    (is (= :true-a (run-selector sel [:b :c :a])))
+    (is (not (run-selector sel [:b :a :c]))))) 
+           
+(with-test
+  (defn- chain-selectors
+   "Composes selectors from left to right."  
+    ([] null-selector)
+    ([selector] selector)
+    ([selector & next-selectors]
+      (let [next-selector (apply chain-selectors next-selectors)]
+        (fn [node]
+          (let [[subselector r] (selector node)
+                chained-subselector (chain-selectors subselector next-selector)]
+            (if r
+              [(merge-selectors next-selector chained-subselector) false] 
+              [chained-subselector false]))))))
 
+  ;; tests         
+  (let [sel-a (self-or-descendants-selector #(= % :a) :true-a)
+        sel-b (self-or-descendants-selector #(= % :b) :true-b)
+        sel (chain-selectors sel-a sel-b)]
+    (is (not (run-selector sel [:a]))) 
+    (is (not (run-selector sel [:b])))
+    (is (= :true-b (run-selector sel [:a :b])))
+    (is (not (run-selector sel [:c :a])))
+    (is (not (run-selector sel [:b :c]))) 
+    (is (not (run-selector sel [:b :c :a])))
+    (is (= :true-b (run-selector sel [:a :c :b])))
+    (is (= :true-b (run-selector sel [:c :a :b])))
+    (is (= :true-b (run-selector sel [:d :a :c :b])))
+    (is (not (run-selector sel [:b :a :c]))))) 
+           
      
 ;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
 
