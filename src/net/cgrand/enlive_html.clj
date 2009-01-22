@@ -339,14 +339,40 @@
     (fn [x]
       (and (tag? x) (every? identity (map #(% x) preds))))))
 
-(defn- compile-selector-step [form]
-  (cond 
-    (seq? form) 
-      (eval `(fn [x#] (~(first form) x# ~@(rest form))))
-    (keyword? form)
-      (keyword-pred form)
-    :else 
-      (eval form)))   
+(with-test
+  (defn- compile-selector-step
+   "Returns a predicate."
+   [form]
+    (cond 
+      (seq? form) 
+        (eval `(fn [x#] (~(first form) x# ~@(rest form))))
+      (keyword? form)
+        (keyword-pred form)
+      (vector? form)
+        (let [preds (map compile-selector-step form)]
+          (fn [x] 
+            (every? #(% x) preds))) 
+      :else 
+        (eval form)))
+  
+  ;; tests
+  ;; - seqs
+  (is ((compile-selector-step '(= :a)) :a))
+  (is (not ((compile-selector-step '(= :a)) :b)))
+  ;; - keywords
+  (is ((compile-selector-step :a) {:tag :a :attrs nil :content nil}))
+  (is (not ((compile-selector-step :a) {:tag :b :attrs nil :content nil})))
+  (is (not ((compile-selector-step :a) :a)))
+  ;; - vector
+  (is ((compile-selector-step [:a]) {:tag :a :attrs nil :content nil}))
+  (is (not ((compile-selector-step '[:a (= :a)]) 
+             {:tag :a :attrs nil :content nil})))
+  (is (not ((compile-selector-step '[:a (-> :attrs :href)]) 
+             {:tag :a :attrs nil :content nil})))
+  (is ((compile-selector-step '[:a (-> :attrs :href)]) 
+        {:tag :a :attrs {:href "http://cgrand.net/"} :content nil}))
+  ;; - else          
+  (is (identical? (compile-selector-step 'identity) identity)))   
 
 (defn- compile-selector
  "Evals a selector form. If the form is anything but a vector,
