@@ -200,27 +200,36 @@
      (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms)))) 
 
 ;; selectors stuff
+(defn- action [selector]
+  (second selector))
+
+(defn- transition-fn [selector]
+  (first selector))
+
 (defn- step-selector
  "Selectors are states in an infinite state machine
   and step-selector is their transition function.
   Returns [new-selector action-or-nil]." 
  [selector node]
-  (selector node))
-
+  ((transition-fn selector) node))
+  
 (defn- run-selector
  "For testing purpose."
   [sel s]
-   (second (reduce #(step-selector (first %1) %2) [sel] s)))
+   (action (reduce step-selector sel s)))
    
-(defn- null-selector [_]
-  [null-selector false]) 
+(def #^{:private true} null-selector
+  [(fn [_] null-selector) false])
+  
+(defn- null-transition [_] null-selector)   
 
 (with-test
   (defn- self-selector [pred action]
    "Returns a selector that matches only the current node (and it needs to 
     satisfy the supplied predicate."
-    (fn this [node]
-      [null-selector (when (pred node) action)]))
+    [(fn this [node]
+       [null-transition (when (pred node) action)]) 
+     false])
       
   ;; tests
   (let [sel (self-selector #(= % :a) true)]
@@ -234,8 +243,9 @@
   (defn- self-or-descendants-selector [pred action]
    "Returns a selector that matches the current node or any of its descendants
     as long as they satisfy the supplied predicate."
-    (fn this [node]
-      [this (when (pred node) action)])) 
+    [(fn this [node]
+       [this (when (pred node) action)])
+     false]) 
       
   ;; tests
   (let [sel (self-or-descendants-selector #(= % :a) true)]
@@ -252,12 +262,11 @@
    "Returns the union of supplied selectors. When succesful a merged selector 
     returns the action of its leftmost successful selector."   
     ([] null-selector)
-    ([selector] selector)
-    ([selector & selectors]
-      (fn [node]
-        (let [results (map #(% node) (cons selector selectors))]
-          [(apply merge-selectors (map first results))
-           (some identity (map second results))]))))
+    ([& selectors]
+      [(fn [node]
+         (let [subselectors (map #(step-selector % node) selectors)]
+           (apply merge-selectors subselectors)))
+       (some action selectors)]))
   
   ;; tests         
   (let [sel-a (self-or-descendants-selector #(= % :a) :true-a)
@@ -279,12 +288,13 @@
     ([selector] selector)
     ([selector & next-selectors]
       (let [next-selector (apply chain-selectors next-selectors)]
-        (fn [node]
-          (let [[subselector r] (selector node)
-                chained-subselector (chain-selectors subselector next-selector)]
-            (if r
-              [(merge-selectors next-selector chained-subselector) false] 
-              [chained-subselector false]))))))
+        [(fn [node]
+           (let [subselector (step-selector selector node)
+                 chained-subselector (chain-selectors subselector next-selector)]
+             (if (action subselector)
+               (merge-selectors next-selector chained-subselector) 
+               chained-subselector)))
+         (when (action selector) (action next-selector))])))
 
   ;; tests         
   (let [sel-a (self-or-descendants-selector #(= % :a) :true-a)
