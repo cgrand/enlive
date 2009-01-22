@@ -316,18 +316,18 @@
 
 (declare transform-node)  
 
-(defn- transform-tag [{:keys [content] :as node} selector action]
+(defn- transform-tag [{:keys [content] :as node} selector]
   (let [transformed-node
          (assoc node :content 
-           (vec (map #(apply transform-node % (step-selector selector %)) 
+           (vec (map #(transform-node % (step-selector selector %)) 
                   content)))] 
-    (if action
+    (if-let [action (action selector)]
       `(apply-template-macro ~transformed-node ~action)
       transformed-node)))
       
-(defn- transform-node [node selectors-actions action]
+(defn- transform-node [node selector]
   (if (tag? node)
-    (transform-tag node selectors-actions action)
+    (transform-tag node selector)
     node))
 
 (defn- keyword-pred [kw]
@@ -375,7 +375,7 @@
  [xml & forms]
   (let [selector (apply merge-selectors (map #(apply compile-selector %) 
                                           (partition 2 forms)))]
-    (apply transform-node xml (step-selector selector xml))))
+    (transform-node xml (step-selector selector xml))))
 
 ;; main macro
 (defmacro deftemplate
