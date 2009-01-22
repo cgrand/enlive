@@ -1,0 +1,27 @@
+h1. Enlive
+
+Enlive is a selector-based (à la CSS) templating library for Clojure. 
+
+An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
+
+A @deftemplate@ form looks like this:
+  (deftemplate template-name "path/to/the/resource/html/file.html"
+   [regular function & arguments] ; once compiled a template is a fn returning a seq of strings
+    selector1 action1
+    selector2 action2
+    ...       ...
+    selectorN actionN)
+
+    
+h2. How does it work?
+
+h3. Overview
+
+# The HTML file is parsed into a clojure.xml tree,
+# nodes matched by selectors are replaced by the result of applying the associated action to them (this result may be some clojure code -- we are in a macro),
+# the resulting tree is compiled into a form like this one @'(list "<a><big><constant><string>" (some code) "</string>" (some other code) "</constant></big></a>")@.
+
+h3. Selectors
+
+Selectors are states in an infinite state machine. @step-selector@ is the transition function. A selector is said to be successful (accept state) if @(action selector)@ is non-nil.
+When then selector is successful, its action is applied to the current node and returns a transformed node (a mix of a clojure.xml tree and clojure code).    
