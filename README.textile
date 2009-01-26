@@ -2,7 +2,8 @@ h1. Enlive
 
 Enlive is a selector-based (à la CSS) templating library for Clojure. 
 
-An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
+An Enlive template has two parts: a HTML file and a @deftemplate@ form
+somewhere in a clj file.
 
 h2. Syntax
 
@@ -20,27 +21,59 @@ h2. How does it work?
 h3. Overview
 
 # The HTML file is parsed into a clojure.xml tree,
-# nodes matched by selectors are replaced by the result of applying the associated action to them (this result may be some clojure code -- we are in a macro),
-# the resulting tree is compiled into a form like this one @'(list "<a><big><constant><string>" (some code) "</string>" (some other code) "</constant></big></a>")@.
+# nodes matched by selectors are replaced by the result of applying the
+associated action to them (this result may be some clojure code -- we are in
+a macro),
+# the resulting tree is compiled into a form like this one 
+@'(list "<a><big><constant><string>" (some code) "</string>" (some other code) "</constant></big></a>")@.
+
 
 h3. Selectors
 
-Selectors are states in an infinite state machine. @step-selector@ is the transition function. A selector is said to be successful (accept state) if @(action selector)@ is non-nil.
-When then selector is successful, its action is applied to the current node and returns a transformed node (a mix of a clojure.xml tree and clojure code).    
+Selectors are states in an infinite state machine. @step-selector@ is the 
+transition function. A selector is said to be successful (accept state) if 
+@(action selector)@ is non-nil.
+
+When then selector is successful, its action is applied to the current node
+and returns a transformed node (a mix of a clojure.xml tree and clojure code).    
+
 
 h3. Template-macros
 
-When a subtree is selected it is passed to the action part of the rule which is either a direct or indirect call to a template-macro or regular clojure code.
-A template macro is defined using @deftemplate-macro@. The first parameter of a template-macro is the selected xml subtree. Note that you must not pass this parameter when you call the template-macro: Enlive takes care of that.
-A template-macro must return a transformed node (a mix of a clojure.xml tree and clojure code).
+When a subtree is selected it is passed to the action part of the rule which
+is either a direct or indirect call to a template-macro or regular clojure 
+code.
+
+A template macro is defined using @deftemplate-macro@. The first parameter of
+a template-macro is the selected xml subtree. Note that you must not pass this
+parameter when you call the template-macro: Enlive takes care of that.
+
+A template-macro must return a transformed node (a mix of a clojure.xml tree
+and clojure code).
+
 
 h3. Flattening
-Each transformed node is flattened: it is first turned into nested seqs of strings and clojure code, then these nested seqs are flattened and runs of strings are merged.
+
+Each transformed node is flattened: it is first turned into nested seqs of
+strings and clojure code, then these nested seqs are flattened and runs of 
+strings are merged.
+
 
 h3. Clojure code
+
 h4. Return value
-When you put clojure code into a template (that is into the resulting transformed node) it must either return a string or a seq of strings or a seq of seq of strings and strings etc. As long as @(remove seq? (tree-seq seq? seq (list returned-value)))@ yields a seq of strings that's ok.
-So, yes, nil is a legit return value and it's pretty useful to remove the selected node. Hence the idiom @(when test ~(show))@.  
+
+When you put clojure code into a template (that is into the resulting
+transformed node) it must either return a string or a seq of strings or a seq
+of seq of strings and strings etc. As long as 
+@(remove seq? (tree-seq seq? seq (list returned-value)))@ yields a seq of 
+strings that's ok.
+
+So, yes, nil is a legit return value and it's pretty useful to remove the
+selected node. Hence the idiom @(when test ~(show))@.  
 
 h4. Calling a template-macro
-To call a template macro when you are inside some clojure code, you have to use unquote: @(when test ~(show))@. Note that you must not pass the selected node to the template-macro (here @show@). 
+
+To call a template macro when you are inside some clojure code, you have to 
+use unquote: @(when test ~(show))@. Note that you must not pass the selected 
+node to the template-macro (here @show@). 
