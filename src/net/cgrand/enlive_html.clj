@@ -56,27 +56,45 @@
 
 (declare compile-node)
 
+(defn escaped [x]
+  (vary-meta (if (seq? x) x (list x)) assoc ::escaped true))
+
+(defn escaped? [x]
+  (-> x meta ::escaped))
+
+(defn escape-user-code [esc x]
+  (escaped ((fn this [x]
+              (cond
+                (escaped? x) x
+                (seq? x) (escaped (map this x))
+                :else (escaped (esc x)))) x))) 
+  
+(defn- user-code [esc x] `(escape-user-code ~esc ~x))
+(defn- user-code? [x] (and (seq? x) (= `escape-user-code (first x))))
+
+(defn- flatten-transformed [node]
+  (node-seq #(and (coll? %) (not (user-code? %))) seq node)) 
+
 (defn- compile-attr [v]
   (if (seq? v) 
-    v ;code
+    (user-code `attr-str v)
     (attr-str v)))
 
 (defn- compile-element [xml]
-  (concat
-    ["<" (-> xml :tag name)] 
-    (mapcat (fn [[k v]] [" " (name k) "=\"" (compile-attr v) "\""]) 
+  ["<" (-> xml :tag name) 
+    (map (fn [[k v]] [" " (name k) "=\"" (compile-attr v) "\""]) 
       (:attrs xml))
     (if-not (or (:content xml) (-> xml :tag *non-empty-tags*))
-      [" />"]
-      (concat [">"] 
-        (mapcat compile-node (:content xml)) 
-        ["</" (-> xml :tag name) ">"]))))
+      " />"
+      [">" 
+        (map compile-node (:content xml)) 
+        "</" (-> xml :tag name) ">"])])
 
 (defn- compile-node [node]
-  (cond
+  (cond 
     (map? node) (compile-element node)
-    (seq? node) [node] ; it's code
-    :else [(xml-str node)]))
+    (string? node) (xml-str node)
+    :else (user-code `xml-str node)))
 
 (with-test
   (defn- merge-str [coll]
@@ -135,8 +153,8 @@
 
 (deftemplate-macro text [xml & forms]
   (if (tag? xml)
-    (assoc xml :content [`(xml-str ~@forms)])
-    `(xml-str ~@forms)))
+    (assoc xml :content [`(str ~@forms)])
+    `(str ~@forms)))
      
 (with-test
   (defn- expand-til-template-macro [xml form]
@@ -156,22 +174,23 @@
   (is (= (expand-til-template-macro 'XML '(unexpandable-form (with-nested ~ops)))
         '(unexpandable-form (with-nested (net.cgrand.enlive-html/apply-template-macro XML ops)))))
   (is (= (expand-til-template-macro 'XML (list `text 'hello 'world))
-        '(net.cgrand.enlive-html/xml-str hello world)))
+        (list `str 'hello 'world)))
   (is (= (expand-til-template-macro 'XML 'a-symbol)
-        '(net.cgrand.enlive-html/xml-str a-symbol))))
+        (list `str 'a-symbol))))
         
 
 (with-test      
   (defmacro apply-template-macro 
    [xml form]
     (let [code (expand-til-template-macro xml form)]
-      (cons `list (-> code compile-node merge-str))))
+      (list `escaped
+        (cons `list (-> code compile-node flatten-transformed merge-str)))))
       
   ;;tests
   (is (= (macroexpand-1 (list `apply-template-macro 
                           {:tag :hello :content ["world" '(some code)] :attrs {:a "b"}}
                           (list `template-macro (fn [x & _] x))))
-        '(clojure.core/list "<hello a=\"b\">world" (some code) "</hello>"))))
+        `(escaped (list "<hello a=\"b\">world" (escape-user-code xml-str ~'(some code)) "</hello>")))))
 
 (defmacro do->
  "Chains (composes) several template-macros."
@@ -198,9 +217,9 @@
     xml))
 
 (deftemplate-macro xhtml-strict [xml & forms]
-  `(list
+  `(escaped (list
      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n" 
-     (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms)))) 
+     (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms))))) 
 
 ;; selectors stuff
 (defn- action [selector]
