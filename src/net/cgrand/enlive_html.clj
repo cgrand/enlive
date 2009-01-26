@@ -157,13 +157,12 @@
         '(net.cgrand.enlive-html/xml-str a-symbol))))
         
 
-;(with-test  ; commented out because of demacro forms returning nil      
+(with-test      
   (defmacro apply-template-macro 
    [xml form]
     (let [code (expand-til-template-macro xml form)]
       (cons `list (-> code compile-node merge-str))))
       
-(set-test apply-template-macro
   ;;tests
   (is (= (macroexpand-1 (list `apply-template-macro 
                           {:tag :hello :content ["world" '(some code)] :attrs {:a "b"}}
