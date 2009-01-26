@@ -34,15 +34,19 @@
   (with-open [stream (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))]
     (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
 
+(defn- node-seq [branch? children x]
+  (remove branch? (tree-seq branch? children x))) 
+
 (defn flatten 
  "Flattens nested lists."
  [s]
-  (remove #(or (seq? %) (nil? %)) (tree-seq seq? seq s)))
+  (node-seq #(or (seq? %) (nil? %)) seq s))
 
 (defn xml-str
  "Like clojure.core/str but escapes < > and &."
  [& xs]
   (apply str (map #(-> % str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;")) xs)))
+  
 (defn attr-str
  "Like clojure.core/str but escapes < > & and \"."
  [& xs]
