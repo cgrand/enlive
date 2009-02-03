@@ -402,7 +402,7 @@
   is expected to evaluate to a predicate on nodes.
   There's special rules for keywords (see keyword-pred) and
   lists ((a b c) yields #(a % b)).
-  Predicates are chained in a hierarchical way à la CSS."
+  Predicates are chained in a hierarchical way ï¿½ la CSS."
  [selector-form action]
   (if-not (vector? selector-form)
     (eval selector-form)
@@ -425,11 +425,15 @@
                                           (partition 2 forms)))]
     (transform-node xml (step-selector selector xml))))
 
-;; main macro
+;; main macros
+(defmacro template 
+ ([path args form]
+  (let [xml (load-html-resource path)]
+    `(fn ~args (flatten (apply-template-macro ~xml ~form)))))
+ ([path args form & forms] 
+   `(template ~path ~args (at ~form ~@forms))))
+  
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
- ([name path args form]
-  (let [xml (load-html-resource path)]
-    `(defn ~name ~args (flatten (apply-template-macro ~xml ~form)))))
- ([name path args form & forms] 
-   `(deftemplate ~name ~path ~args (at ~form ~@forms))))
+ [name path args & forms] 
+  `(def ~name (template ~path ~args ~@forms)))
