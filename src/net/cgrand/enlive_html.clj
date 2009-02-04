@@ -158,15 +158,13 @@
      
 (with-test
   (defn- expand-til-template-macro [xml form]
-    (if (seq? form)
-      (let [x (first form)]  
-        (if (and (symbol? x) (= (resolve x) #'template-macro))
-          (apply (second form) xml (rrest form))
-          (let [ex-form (macroexpand-1 form)]
-            (if (= ex-form form)
-              (replace-unquote form #(list `apply-template-macro xml %)) 
-              (recur xml ex-form)))))
-      (recur xml (list `text form))))
+    (let [form (macroexpand form)]
+      (if (seq? form)
+        (let [x (first form)]  
+          (if (and (symbol? x) (= (resolve x) #'template-macro))
+            (apply (second form) xml (rrest form))
+            (replace-unquote form #(list `apply-template-macro xml %)))) 
+        (recur xml (list `text form)))))
 
   ;; tests    
   (is (= (expand-til-template-macro 'XML '(unexpandable-form))
