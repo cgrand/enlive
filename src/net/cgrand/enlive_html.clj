@@ -203,7 +203,7 @@
      
 (deftemplate-macro set-attr [xml & forms]
   (if (tag? xml)
-    (let [attrs (reduce (fn [attrs [name form]] (assoc attrs name `(attr-str ~form)))
+    (let [attrs (reduce (fn [attrs [name form]] (assoc attrs name `(str ~form)))
                   (:attrs xml) (partition 2 forms))]
       (assoc xml :attrs attrs)) 
     xml))
