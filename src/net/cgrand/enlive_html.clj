@@ -192,12 +192,10 @@
                           (list `template-macro (fn [x & _] x))))
         `(escaped (list "<hello a=\"b\">world" (escape-user-code xml-str ~'(some code)) "</hello>")))))
 
-(defmacro do->
+(deftemplate-macro do->
  "Chains (composes) several template-macros."
- [& forms]
-  (let [fs (map (comp second expand-til-template-macro) forms)
-        f (apply comp (reverse fs))]
-    `(template-macro ~f)))  
+ [xml & forms]
+  (reduce expand-til-template-macro xml forms))
 
 ;; simple template macros
 (deftemplate-macro show [xml]
