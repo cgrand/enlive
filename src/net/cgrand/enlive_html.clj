@@ -434,7 +434,7 @@
 (defmacro template 
  ([path args form]
   (let [xml (load-html-resource path)]
-    `(fn ~args (flatten (apply-template-macro ~xml ~form)))))
+    `(fn ~args (escaped (flatten (apply-template-macro ~xml ~form))))))
  ([path args form & forms] 
    `(template ~path ~args (at ~form ~@forms))))
   
