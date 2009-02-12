@@ -364,6 +364,8 @@
     (cond 
       (seq? form) 
         (eval `(fn [x#] (~(first form) x# ~@(rest form))))
+      (= :* form)
+        (constantly true)
       (keyword? form)
         (keyword-pred form)
       (vector? form)
