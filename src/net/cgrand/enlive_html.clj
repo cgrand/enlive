@@ -34,6 +34,11 @@
   (with-open [stream (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))]
     (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
 
+(defn html-resource [xml-or-path]
+  (if (map? xml-or-path)
+    xml-or-path
+    (load-html-resource xml-or-path)))
+
 (defn- node-seq [branch? children x]
   (remove branch? (tree-seq branch? children x))) 
 
@@ -460,19 +465,19 @@
 
 ;; main macros
 (defmacro template 
- ([xml args form]
-   `(fn ~args (escaped (flatten (apply-template-macro ~xml ~form)))))
- ([xml args form & forms] 
-   `(template ~xml ~args (at ~form ~@forms))))
+ ([xml-or-path args form]
+   (let [xml (html-resource xml-or-path)]
+     `(fn ~args (escaped (flatten (apply-template-macro ~xml ~form))))))
+ ([xml-or-path args form & forms] 
+   `(template ~xml-or-path ~args (at ~form ~@forms))))
 
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
- [name path args & forms] 
-  (let [xml (load-html-resource path)]
-    `(def ~name (template ~xml ~args ~@forms))))
+ [name xml-or-path args & forms] 
+  `(def ~name (template ~xml-or-path ~args ~@forms)))
 
-(defmacro snippet [xml selector args form & forms]
-  `(template ~xml ~args
+(defmacro snippet [xml-or-path selector args form & forms]
+  `(template ~xml-or-path ~args
      (do->
        (select ~selector)
        ~(if forms
@@ -480,13 +485,12 @@
           form))))
 
 (defmacro defsnippet
- [name path selector args & forms]
-  (let [xml (load-html-resource path)]
-   `(def ~name (snippet ~xml ~selector ~args ~@forms))))
+ [name xml-or-path selector args & forms]
+ `(def ~name (snippet ~xml-or-path ~selector ~args ~@forms)))
    
 (defmacro defsnippets
- [path & specs]
-  (let [xml (load-html-resource path)]
+ [xml-or-path & specs]
+  (let [xml (html-resource xml-or-path)]
    `(do
      ~@(map (fn [[name selector args & forms]]
               `(def ~name (snippet ~xml ~selector ~args ~@forms)))
