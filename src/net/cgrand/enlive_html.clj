@@ -409,18 +409,22 @@
   lists ((a b c) yields #(a % b)).
   Predicates are chained in a hierarchical way � la CSS."
  [selector-form action]
-  (if-not (vector? selector-form)
-    (eval selector-form)
-    (loop [items (seq selector-form) 
-           selector-type self-or-descendants-selector
-           selectors []]
-      (if-let [[x & xs] items]
-        (if (= :> x)
-          (recur xs self-selector selectors)
-          (let [pred (compile-selector-step x)]
-            (recur xs self-or-descendants-selector
-              (conj selectors (selector-type pred action)))))
-        (apply chain-selectors selectors))))) 
+  (cond
+    (vector? selector-form)
+      (loop [items (seq selector-form) 
+             selector-type self-or-descendants-selector
+             selectors []]
+        (if-let [[x & xs] items]
+          (if (= :> x)
+            (recur xs self-selector selectors)
+            (let [pred (compile-selector-step x)]
+              (recur xs self-or-descendants-selector
+                (conj selectors (selector-type pred action)))))
+          (apply chain-selectors selectors)))
+    (set? selector-form)
+      (apply merge-selectors (map #(compile-selector % action) selector-form))
+    :else
+      (eval selector-form))) 
                
   
 (deftemplate-macro at
