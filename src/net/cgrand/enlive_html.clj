@@ -440,13 +440,13 @@
 
 ;; main macros
 (defmacro template 
- ([path args form]
-  (let [xml (load-html-resource path)]
-    `(fn ~args (escaped (flatten (apply-template-macro ~xml ~form))))))
- ([path args form & forms] 
-   `(template ~path ~args (at ~form ~@forms))))
-  
+ ([xml args form]
+   `(fn ~args (escaped (flatten (apply-template-macro ~xml ~form)))))
+ ([xml args form & forms] 
+   `(template ~xml ~args (at ~form ~@forms))))
+
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
  [name path args & forms] 
-  `(def ~name (template ~path ~args ~@forms)))
+  (let [xml (load-html-resource path)]
+    `(def ~name (template ~xml ~args ~@forms))))
