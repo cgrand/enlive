@@ -379,6 +379,10 @@
         (let [preds (map compile-selector-step form)]
           (fn [x] 
             (every? #(% x) preds))) 
+      (set? form)
+        (let [preds (map compile-selector-step form)]
+          (fn [x] 
+            (some #(% x) preds))) 
       :else 
         (eval form)))
   
