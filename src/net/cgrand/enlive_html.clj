@@ -328,7 +328,14 @@
     (is (= :true-b (run-selector sel [:c :a :b])))
     (is (= :true-b (run-selector sel [:d :a :c :b])))
     (is (not (run-selector sel [:b :a :c]))))) 
-           
+
+;; selector helpers
+(defn attr= [e attr value]
+  (= value (-> e :attrs attr)))
+  
+(defn attr? [e & attrs]
+  (let [a (:attrs e)]
+    (every? #(get a %) attrs)))           
      
 ;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
 
