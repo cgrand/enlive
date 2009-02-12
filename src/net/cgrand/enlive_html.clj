@@ -438,6 +438,26 @@
                                           (partition 2 forms)))]
     (transform-node xml (step-selector selector xml))))
 
+;; select template-macro
+(declare select-node)  
+
+(defn- select-tag [{:keys [content] :as node} selector]
+  (if-let [action (action selector)]
+    node
+    (let [selected-nodes (map #(select-node % (step-selector selector %)) 
+                           content)] 
+      (some identity selected-nodes))))
+      
+(defn- select-node [node selector]
+  (when (tag? node)
+    (select-tag node selector)))
+
+(deftemplate-macro select
+ "Selects a single subnode of the current node and returns it." 
+ [xml selector-spec]
+  (let [selector (compile-selector selector-spec identity)]
+    (select-node xml (step-selector selector xml))))
+
 ;; main macros
 (defmacro template 
  ([xml args form]
@@ -450,3 +470,24 @@
  [name path args & forms] 
   (let [xml (load-html-resource path)]
     `(def ~name (template ~xml ~args ~@forms))))
+
+(defmacro snippet [xml selector args form & forms]
+  `(template ~xml ~args
+     (do->
+       (select ~selector)
+       ~(if forms
+          `(at ~form ~@forms)
+          form))))
+
+(defmacro defsnippet
+ [name path selector args & forms]
+  (let [xml (load-html-resource path)]
+   `(def ~name (snippet ~xml ~selector ~args ~@forms))))
+   
+(defmacro defsnippets
+ [path & specs]
+  (let [xml (load-html-resource path)]
+   `(do
+     ~@(map (fn [[name selector args & forms]]
+              `(def ~name (snippet ~xml ~selector ~args ~@forms)))
+         specs))))
