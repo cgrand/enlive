@@ -280,6 +280,8 @@
     (is (run-selector sel [:b :c :a]))
     (is (not (run-selector sel [:b :a :c]))))) 
 
+(def *warn-on-rule-collision* true)
+
 (with-test
   (defn- merge-selectors
    "Returns the union of supplied selectors. When succesful a merged selector 
@@ -287,7 +289,13 @@
     ([] null-selector)
     ([& selectors]
       [(fn [node]
-         (let [subselectors (map #(step-selector % node) selectors)]
+         (let [subselectors (map #(step-selector % node) selectors)
+               actions (filter identity (map action subselectors))]
+           (when (and *warn-on-rule-collision* (rest actions))
+             (println "Rule collision at:" node)
+             (println "between:")
+             (doseq [action actions]
+               (println "  " action)))
            (apply merge-selectors subselectors)))
        (some action selectors)]))
   
