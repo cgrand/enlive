@@ -10,7 +10,10 @@
 
 (ns net.cgrand.enlive-html
   (:require [clojure.xml :as xml])
-  (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]]))
+  ;(:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]])
+  )
+
+(defmacro with-test [form & etc] form)
 
 ;; enlive-html is a selector-based templating engine
 ;;
@@ -45,7 +48,7 @@
 (defn flatten 
  "Flattens nested lists."
  [s]
-  (node-seq #(or (seq? %) (nil? %)) seq s))
+  (node-seq #(not (string? %)) seq s))
 
 (defn xml-str
  "Like clojure.core/str but escapes < > and &."
@@ -62,7 +65,7 @@
 (declare compile-node)
 
 (defn escaped [x]
-  (vary-meta (if (seq? x) x (list x)) assoc ::escaped true))
+  (vary-meta (cond (sequence? x) (apply list x) (coll? x) x :else (list x)) assoc ::escaped true))
 
 (defn escaped? [x]
   (-> x meta ::escaped))
@@ -71,7 +74,7 @@
   (escaped ((fn this [x]
               (cond
                 (escaped? x) x
-                (seq? x) (escaped (map this x))
+                (coll? x) (escaped (map this x))
                 :else (escaped (esc x)))) x))) 
   
 (defn- user-code [esc x] `(escape-user-code ~esc ~x))
@@ -103,11 +106,12 @@
 
 (with-test
   (defn- merge-str [coll]
-    (when (seq coll)
-      (let [[strs etc] (split-with string? coll)]
-        (if strs
-          (lazy-cons (apply str strs) (merge-str etc))
-          (lazy-cons (first coll) (merge-str (rest coll)))))))
+    (lazy-seq 
+      (when (seq coll)
+        (let [[strs etc] (split-with string? coll)]
+          (if (seq strs)
+            (cons (apply str strs) (merge-str etc))
+            (cons (first coll) (merge-str (rest coll))))))))
 
   ;; tests
   (is (= (merge-str ["ab" "cd" ["fe"] "gh" \c "i" "j"])
@@ -149,9 +153,9 @@
   is the current xml subtree being templated."
  [name bindings & forms]
  (let [[bindings doc-string forms] (if (string? bindings) 
-                                     [(first forms) bindings (rest forms)]
+                                     [(first forms) bindings (next forms)]
                                      [bindings nil forms])] 
-   `(defmacro ~name {:doc ~doc-string :arglists '([~@(rest bindings)])} 
+   `(defmacro ~name {:doc ~doc-string :arglists '([~@(next bindings)])} 
      [& args#]
       (let [macro-fn# (fn ~bindings ~@forms)]
         (apply list `template-macro macro-fn# args#)))))   
@@ -167,7 +171,7 @@
       (if (seq? form)
         (let [x (first form)]  
           (if (and (symbol? x) (= (resolve x) #'template-macro))
-            (apply (second form) xml (rrest form))
+            (apply (second form) xml (nnext form))
             (replace-unquote form #(list `apply-template-macro xml %)))) 
         (recur xml (list `text form)))))
 
@@ -291,7 +295,7 @@
       [(fn [node]
          (let [subselectors (map #(step-selector % node) selectors)
                actions (filter identity (map action subselectors))]
-           (when (and *warn-on-rule-collision* (rest actions))
+           (when (and *warn-on-rule-collision* (next actions))
              (println "Rule collision at:" node)
              (println "between:")
              (doseq [action actions]
@@ -383,7 +387,7 @@
    [form]
     (cond 
       (seq? form) 
-        (eval `(fn [x#] (~(first form) x# ~@(rest form))))
+        (eval `(fn [x#] (~(first form) x# ~@(next form))))
       (= :* form)
         (constantly true)
       (keyword? form)
