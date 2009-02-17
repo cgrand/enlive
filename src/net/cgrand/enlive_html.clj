@@ -48,7 +48,7 @@
 (defn flatten 
  "Flattens nested lists."
  [s]
-  (node-seq #(not (string? %)) seq s))
+  (node-seq #(or (seq? %) (nil? %)) seq s))
 
 (defn xml-str
  "Like clojure.core/str but escapes < > and &."
@@ -65,7 +65,7 @@
 (declare compile-node)
 
 (defn escaped [x]
-  (vary-meta (cond (sequence? x) (apply list x) (coll? x) x :else (list x)) assoc ::escaped true))
+  (vary-meta (cond (seq? x) (apply list x) (coll? x) x :else (list x)) assoc ::escaped true))
 
 (defn escaped? [x]
   (-> x meta ::escaped))
@@ -74,7 +74,7 @@
   (escaped ((fn this [x]
               (cond
                 (escaped? x) x
-                (coll? x) (escaped (map this x))
+                (seq? x) (escaped (map this x))
                 :else (escaped (esc x)))) x))) 
   
 (defn- user-code [esc x] `(escape-user-code ~esc ~x))
