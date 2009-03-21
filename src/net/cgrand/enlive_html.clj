@@ -80,7 +80,7 @@
 (declare compile-node)
 
 (defn escaped [x]
-  (vary-meta (cond (seq? x) (apply list x) (coll? x) x :else (list x)) assoc ::escaped true))
+  (vary-meta (if (seq? x) x (list x)) assoc ::escaped true))
 
 (defn escaped? [x]
   (-> x meta ::escaped))
