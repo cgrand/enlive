@@ -10,10 +10,7 @@
 
 (ns net.cgrand.enlive-html
   (:require [clojure.xml :as xml])
-  ;(:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]])
-  )
-
-(defmacro with-test [form & etc] form)
+  (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]]))
 
 ;; enlive-html is a selector-based templating engine
 ;;
