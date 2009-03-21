@@ -29,15 +29,33 @@
     (.parse p s)))
 
 (defn load-html-resource 
- "Loads and parse an HTML resource."
- [path] 
-  (with-open [stream (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))]
+ "Loads and parse an HTML resource and closes the stream."
+ [stream] 
+  (with-open [stream stream]
     (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
 
-(defn html-resource [xml-or-path]
-  (if (map? xml-or-path)
-    xml-or-path
-    (load-html-resource xml-or-path)))
+(defmulti html-resource type)
+
+(defmethod html-resource java.util.Map
+ [xml-data]
+  xml-data)
+
+(defmethod html-resource String
+ [path]
+  (load-html-resource (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))))
+
+(defmethod html-resource java.io.File
+ [file]
+  (load-html-resource (java.io.FileInputStream. file)))
+
+(defmethod html-resource java.net.URL
+ [#^java.net.URL url]
+  (load-html-resource (.getContent url)))
+
+(defmethod html-resource java.net.URI
+ [#^java.net.URI uri]
+  (html-resource (.toURL uri)))
+
 
 (defn- node-seq [branch? children x]
   (remove branch? (tree-seq branch? children x))) 
