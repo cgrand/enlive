@@ -107,7 +107,7 @@
   ["<" (-> xml :tag name) 
     (map (fn [[k v]] [" " (name k) "=\"" (compile-attr v) "\""]) 
       (:attrs xml))
-    (if-not (or (:content xml) (-> xml :tag *non-empty-tags*))
+    (if (and (empty? (:content xml)) (-> xml :tag *non-empty-tags* not))
       " />"
       [">" 
         (map compile-node (:content xml)) 
