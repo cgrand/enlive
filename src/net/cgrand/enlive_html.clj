@@ -75,7 +75,7 @@
  [& xs]
   (apply str (map #(-> % str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;") (.replace "\"" "&quot;")) xs)))
 
-(def *non-empty-tags* #{:script})
+(def *self-closing-tags* #{:area :base :basefont :br :hr :input :img :link :meta})
 
 (declare compile-node)
 
@@ -107,7 +107,7 @@
   ["<" (-> xml :tag name) 
     (map (fn [[k v]] [" " (name k) "=\"" (compile-attr v) "\""]) 
       (:attrs xml))
-    (if (and (empty? (:content xml)) (-> xml :tag *non-empty-tags* not))
+    (if (and (empty? (:content xml)) (-> xml :tag *self-closing-tags*))
       " />"
       [">" 
         (map compile-node (:content xml)) 
