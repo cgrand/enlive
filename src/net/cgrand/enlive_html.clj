@@ -10,6 +10,9 @@
 
 (ns net.cgrand.enlive-html
   (:require [clojure.xml :as xml])
+  (:require [clojure.zip :as z])
+  (:require [clojure.contrib.zip-filter :as zf])
+  (:require [clojure.contrib.zip-filter.xml :as zfx])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]]))
 
 ;; enlive-html is a selector-based templating engine
@@ -57,461 +60,126 @@
   (html-resource (.toURL uri)))
 
 
-(defn- node-seq [branch? children x]
-  (remove branch? (tree-seq branch? children x))) 
-
-(defn flatten 
- "Flattens nested lists."
- [s]
-  (node-seq #(or (seq? %) (nil? %)) seq s))
-
 (defn xml-str
  "Like clojure.core/str but escapes < > and &."
- [& xs]
-  (apply str (map #(-> % str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;")) xs)))
+ [x]
+  (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;")))
   
 (defn attr-str
  "Like clojure.core/str but escapes < > & and \"."
- [& xs]
-  (apply str (map #(-> % str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;") (.replace "\"" "&quot;")) xs)))
+ [x]
+  (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;") (.replace "\"" "&quot;")))
 
-(def *non-empty-tags* #{:script})
+(def *self-closing-tags* #{:area :base :basefont :br :hr :input :img :link :meta})
 
-(declare compile-node)
+(declare emit)
 
-(defn escaped [x]
-  (vary-meta (if (seq? x) x (list x)) assoc ::escaped true))
+(defn emit-attrs [attrs]
+  (mapcat (fn [[k v]]
+            [" " (name k) "=\"" (attr-str v) "\""]) attrs))
 
-(defn escaped? [x]
-  (-> x meta ::escaped))
+(defn emit-tag [tag]
+  (let [name (-> tag :tag name)]
+    (concat ["<" name]
+      (emit-attrs (:attrs tag))
+      (if-let [s (seq (:content tag))]
+        (concat [">"] (mapcat emit s) ["</" name ">"])
+        (if (*self-closing-tags* tag) 
+          [" />"]
+          ["></" name ">"])))))
 
-(defn escape-user-code [esc x]
-  (escaped ((fn this [x]
-              (cond
-                (escaped? x) x
-                (seq? x) (escaped (map this x))
-                :else (escaped (esc x)))) x))) 
-  
-(defn- user-code [esc x] `(escape-user-code ~esc ~x))
-(defn- user-code? [x] (and (seq? x) (= `escape-user-code (first x))))
-
-(defn- flatten-transformed [node]
-  (node-seq #(and (coll? %) (not (user-code? %))) seq node)) 
-
-(defn- compile-attr [v]
-  (if (seq? v) 
-    (user-code `attr-str v)
-    (attr-str v)))
-
-(defn- compile-element [xml]
-  ["<" (-> xml :tag name) 
-    (map (fn [[k v]] [" " (name k) "=\"" (compile-attr v) "\""]) 
-      (:attrs xml))
-    (if-not (or (:content xml) (-> xml :tag *non-empty-tags*))
-      " />"
-      [">" 
-        (map compile-node (:content xml)) 
-        "</" (-> xml :tag name) ">"])])
-
-(defn- compile-node [node]
-  (cond 
-    (map? node) (compile-element node)
-    (string? node) (xml-str node)
-    :else (user-code `xml-str node)))
-
-(with-test
-  (defn- merge-str [coll]
-    (lazy-seq 
-      (when (seq coll)
-        (let [[strs etc] (split-with string? coll)]
-          (if (seq strs)
-            (cons (apply str strs) (merge-str etc))
-            (cons (first coll) (merge-str (rest coll))))))))
-
-  ;; tests
-  (is (= (merge-str ["ab" "cd" ["fe"] "gh" \c "i" "j"])
-        ["abcd" ["fe"] "gh" \c "ij"])))
-
-;;
-(defn- unquote? [form]
-  (and (seq? form) (= (first form) `unquote)))
-          
-(with-test  
-  (defn- replace-unquote [form replacement-fn]
-    (let [replace 
-           (fn replace [form]
-             (cond 
-               (unquote? form) (replacement-fn (second form))
-               (seq? form) (map replace form)
-               (vector? form) (vec (map replace form))
-               (map? form) (into {} (map (fn [[k v]] 
-                                           [(replace k) (replace v)]) form))
-               (set? form) (set (map replace form))
-               :else form))]
-      (replace form)))      
-
-  ;; tests
-  (is (= (replace-unquote '(fred ethel ~someone) (constantly 'lucy))
-        '(fred ethel lucy)))
-  (is (= (replace-unquote '(fred [ethel ~someone]) (constantly 'lucy))
-        '(fred [ethel lucy])))
-  (is (= (replace-unquote '(fred {ethel ~someone}) (constantly 'lucy))
-        '(fred {ethel lucy})))
-  (is (= (replace-unquote '(fred {~someone ethel}) (constantly 'lucy))
-        '(fred {lucy ethel}))))
-
-;;
-(declare template-macro)
-
-(defmacro deftemplate-macro
- "Define a macro to be used inside a template. The first arg to a template-macro 
-  is the current xml subtree being templated."
- [name bindings & forms]
- (let [[bindings doc-string forms] (if (string? bindings) 
-                                     [(first forms) bindings (next forms)]
-                                     [bindings nil forms])] 
-   `(defmacro ~name {:doc ~doc-string :arglists '([~@(next bindings)])} 
-     [& args#]
-      (let [macro-fn# (fn ~bindings ~@forms)]
-        (apply list `template-macro macro-fn# args#)))))   
-
-(deftemplate-macro text [xml & forms]
-  (if (tag? xml)
-    (assoc xml :content [`(str ~@forms)])
-    `(str ~@forms)))
-     
-(with-test
-  (defn- expand-til-template-macro [xml form]
-    (let [form (macroexpand form)]
-      (if (seq? form)
-        (let [x (first form)]  
-          (if (and (symbol? x) (= (resolve x) #'template-macro))
-            (apply (second form) xml (nnext form))
-            (replace-unquote form #(list `apply-template-macro xml %)))) 
-        (recur xml (list `text form)))))
-
-  ;; tests    
-  (is (= (expand-til-template-macro 'XML '(unexpandable-form))
-        '(unexpandable-form)))
-  (is (= (expand-til-template-macro 'XML '(unexpandable-form (with-nested ~ops)))
-        '(unexpandable-form (with-nested (net.cgrand.enlive-html/apply-template-macro XML ops)))))
-  (is (= (expand-til-template-macro 'XML (list `text 'hello 'world))
-        (list `str 'hello 'world)))
-  (is (= (expand-til-template-macro 'XML 'a-symbol)
-        (list `str 'a-symbol))))
-        
-
-(with-test      
-  (defmacro apply-template-macro 
-   [xml form]
-    (let [code (expand-til-template-macro xml form)]
-      (list `escaped
-        (cons `list (-> code compile-node flatten-transformed merge-str)))))
+(defn emit [node]
+  (if (map? node)
+    (emit-tag node)
+    [(xml-str node)]))
+    
+(defn emit* [node-or-nodes]
+  (if (map? node-or-nodes) (emit node-or-nodes) (mapcat emit node-or-nodes)))
       
-  ;;tests
-  (is (= (macroexpand-1 (list `apply-template-macro 
-                          {:tag :hello :content ["world" '(some code)] :attrs {:a "b"}}
-                          (list `template-macro (fn [x & _] x))))
-        `(escaped (list "<hello a=\"b\">world" (escape-user-code xml-str ~'(some code)) "</hello>")))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftemplate-macro do->
- "Chains (composes) several template-macros."
- [xml & forms]
-  (reduce expand-til-template-macro xml forms))
+(defn- not-node? [x]
+  (cond (string? x) false (map? x) false :else true))
 
-;; simple template macros
-(deftemplate-macro show [xml]
-  xml)
+(defn- flatten [x]
+  (remove not-node? (tree-seq not-node? seq x)))
+
+(defn convert-selector [selector]
+  (loop [xs (seq selector) descendants true zfx-selector []]
+    (if-let [[x & xs] xs]
+      (cond
+        (= :> x) (recur xs false zfx-selector)
+        descendants (recur xs true (conj zfx-selector zf/descendants x))
+        :else (recur xs true (conj zfx-selector x)))
+      zfx-selector)))
+
+(defn- transform-1 [node selector transformation]
+  (let [root-loc (z/xml-zip node)
+        selected-locs (set (apply zfx/xml-> root-loc (convert-selector selector)))
+        _ (prn "selected:" (count selected-locs) "/" selector)
+        xform (fn xform [loc]
+                (if (z/branch? loc)
+                  (let [children (flatten (map xform (zf/children loc)))
+                        node (z/make-node loc (z/node loc) children)]
+                    (if (selected-locs loc) (transformation node) node))
+                  (z/node loc)))]
+    (xform root-loc)))
+
+(defn transform [nodes selector transformation]
+  (flatten (map #(transform-1 % selector transformation) nodes)))
+
+(defn content [& xs]
+  #(assoc % :content xs))
+
+(defn at* [& rules]
+  (fn [node] 
+    (reduce #(apply transform %1 %2) [node] (partition 2 rules))))
+    
+(defn at [node & rules]
+  ((apply at* rules) node))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn content [& values]
+  #(assoc % :content values))
+    
+(defn set-attr [& kvs]
+	#(let [attrs (into (:attrs %) (partition 2 kvs))]
+ 	  (assoc % :attrs attrs)))
      
-(deftemplate-macro set-attr [xml & forms]
-  (if (tag? xml)
-    (let [attrs (reduce (fn [attrs [name form]] (assoc attrs name `(str ~form)))
-                  (:attrs xml) (partition 2 forms))]
-      (assoc xml :attrs attrs)) 
-    xml))
-     
-(deftemplate-macro remove-attr [xml & attr-names]
-  (if (tag? xml)
-    (let [attrs (apply dissoc (:attrs xml) attr-names)]
-      (assoc xml :attrs attrs)) 
-    xml))
+(defn remove-attr [xml & attr-names]
+  #(let [attrs (apply dissoc (:attrs %) attr-names)]
+    (assoc % :attrs attrs)))
 
-(deftemplate-macro xhtml-strict [xml & forms]
+(comment deftemplate-macro xhtml-strict [xml & forms]
   `(escaped (list
      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n" 
      (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms))))) 
 
-;; selectors stuff
-(defn- action [selector]
-  (second selector))
-
-(defn- transition-fn [selector]
-  (first selector))
-
-(defn- step-selector
- "Selectors are states in an infinite state machine
-  and step-selector is their transition function.
-  Returns [new-selector action-or-nil]." 
- [selector node]
-  ((transition-fn selector) node))
-  
-(defn- run-selector
- "For testing purpose."
-  [sel s]
-   (action (reduce step-selector sel s)))
-   
-(def #^{:private true} null-selector
-  [(fn [_] null-selector) false])
-  
-(defn- null-transition [_] null-selector)   
-
-(with-test
-  (defn- self-selector [pred action]
-   "Returns a selector that matches only the current node (and it needs to 
-    satisfy the supplied predicate."
-    [(fn this [node]
-       [null-transition (when (pred node) action)]) 
-     false])
-      
-  ;; tests
-  (let [sel (self-selector #(= % :a) true)]
-    (is (run-selector sel [:a])) 
-    (is (not (run-selector sel [:b])))
-    (is (not (run-selector sel [:a :b])))
-    (is (not (run-selector sel [:b :a])))
-    (is (not (run-selector sel [:b :c])))))
-
-(with-test
-  (defn- self-or-descendants-selector [pred action]
-   "Returns a selector that matches the current node or any of its descendants
-    as long as they satisfy the supplied predicate."
-    [(fn this [node]
-       [this (when (pred node) action)])
-     false]) 
-      
-  ;; tests
-  (let [sel (self-or-descendants-selector #(= % :a) true)]
-    (is (run-selector sel [:a])) 
-    (is (not (run-selector sel [:b])))
-    (is (not (run-selector sel [:a :b])))
-    (is (run-selector sel [:b :a]))
-    (is (not (run-selector sel [:b :c]))) 
-    (is (run-selector sel [:b :c :a]))
-    (is (not (run-selector sel [:b :a :c]))))) 
-
-(def *warn-on-rule-collision* true)
-
-(with-test
-  (defn- merge-selectors
-   "Returns the union of supplied selectors. When succesful a merged selector 
-    returns the action of its leftmost successful selector."   
-    ([] null-selector)
-    ([& selectors]
-      [(fn [node]
-         (let [subselectors (map #(step-selector % node) selectors)
-               actions (filter identity (map action subselectors))]
-           (when (and *warn-on-rule-collision* (next actions))
-             (println "Rule collision at:" node)
-             (println "between:")
-             (doseq [action actions]
-               (println "  " action)))
-           (apply merge-selectors subselectors)))
-       (some action selectors)]))
-  
-  ;; tests         
-  (let [sel-a (self-or-descendants-selector #(= % :a) :true-a)
-        sel-b (self-or-descendants-selector #(= % :b) :true-b)
-        sel (merge-selectors sel-a sel-b)]
-    (is (= :true-a (run-selector sel [:a]))) 
-    (is (= :true-b (run-selector sel [:b])))
-    (is (not (run-selector sel [:c])))
-    (is (= :true-b (run-selector sel [:a :b])))
-    (is (= :true-a (run-selector sel [:c :a])))
-    (is (not (run-selector sel [:b :c]))) 
-    (is (= :true-a (run-selector sel [:b :c :a])))
-    (is (not (run-selector sel [:b :a :c]))))) 
-           
-(with-test
-  (defn- chain-selectors
-   "Composes selectors from left to right."  
-    ([] null-selector)
-    ([selector] selector)
-    ([selector & next-selectors]
-      (let [next-selector (apply chain-selectors next-selectors)]
-        [(fn [node]
-           (let [subselector (step-selector selector node)
-                 chained-subselector (chain-selectors subselector next-selector)]
-             (if (action subselector)
-               (merge-selectors next-selector chained-subselector) 
-               chained-subselector)))
-         (when (action selector) (action next-selector))])))
-
-  ;; tests         
-  (let [sel-a (self-or-descendants-selector #(= % :a) :true-a)
-        sel-b (self-or-descendants-selector #(= % :b) :true-b)
-        sel (chain-selectors sel-a sel-b)]
-    (is (not (run-selector sel [:a]))) 
-    (is (not (run-selector sel [:b])))
-    (is (= :true-b (run-selector sel [:a :b])))
-    (is (not (run-selector sel [:c :a])))
-    (is (not (run-selector sel [:b :c]))) 
-    (is (not (run-selector sel [:b :c :a])))
-    (is (= :true-b (run-selector sel [:a :c :b])))
-    (is (= :true-b (run-selector sel [:c :a :b])))
-    (is (= :true-b (run-selector sel [:d :a :c :b])))
-    (is (not (run-selector sel [:b :a :c]))))) 
-
-;; selector helpers
-(defn attr= [e attr value]
-  (= value (-> e :attrs attr)))
-  
-(defn attr? [e & attrs]
-  (let [a (:attrs e)]
-    (every? #(get a %) attrs)))           
-     
-;; the "at" template-macro: allows to apply other template-macros to subtrees using selectors.
-
-(declare transform-node)  
-
-(defn- transform-tag [{:keys [content] :as node} selector]
-  (let [transformed-node
-         (assoc node :content 
-           (vec (map #(transform-node % (step-selector selector %)) 
-                  content)))] 
-    (if-let [action (action selector)]
-      `(apply-template-macro ~transformed-node ~action)
-      transformed-node)))
-      
-(defn- transform-node [node selector]
-  (if (tag? node)
-    (transform-tag node selector)
-    node))
-
-(defn- keyword-pred [kw]
-  (let [segments (.split (name kw) "(?=[#.])")
-        preds (map (fn [#^String s] (condp = (first s)
-                      \. #(-> % :attrs (:class "") (.split "\\s+") set (get (.substring s 1))) 
-                      \# #(= (.substring s 1) (-> % :attrs :id))
-                      #(= s (name (:tag %))))) segments)]
-    (fn [x]
-      (and (tag? x) (every? identity (map #(% x) preds))))))
-
-(with-test
-  (defn- compile-selector-step
-   "Returns a predicate."
-   [form]
-    (cond 
-      (seq? form) 
-        (eval `(fn [x#] (~(first form) x# ~@(next form))))
-      (= :* form)
-        (constantly true)
-      (keyword? form)
-        (keyword-pred form)
-      (vector? form)
-        (let [preds (map compile-selector-step form)]
-          (fn [x] 
-            (every? #(% x) preds))) 
-      (set? form)
-        (let [preds (map compile-selector-step form)]
-          (fn [x] 
-            (some #(% x) preds))) 
-      :else 
-        (eval form)))
-  
-  ;; tests
-  ;; - seqs
-  (is ((compile-selector-step '(= :a)) :a))
-  (is (not ((compile-selector-step '(= :a)) :b)))
-  ;; - keywords
-  (is ((compile-selector-step :a) {:tag :a :attrs nil :content nil}))
-  (is (not ((compile-selector-step :a) {:tag :b :attrs nil :content nil})))
-  (is (not ((compile-selector-step :a) :a)))
-  ;; - vector
-  (is ((compile-selector-step [:a]) {:tag :a :attrs nil :content nil}))
-  (is (not ((compile-selector-step '[:a (= :a)]) 
-             {:tag :a :attrs nil :content nil})))
-  (is (not ((compile-selector-step '[:a (-> :attrs :href)]) 
-             {:tag :a :attrs nil :content nil})))
-  (is ((compile-selector-step '[:a (-> :attrs :href)]) 
-        {:tag :a :attrs {:href "http://cgrand.net/"} :content nil}))
-  ;; - else          
-  (is (identical? (compile-selector-step 'identity) identity)))   
-
-(defn- compile-selector
- "Evals a selector form. If the form is anything but a vector,
-  it's simply evaluated. If the form is a vector, each element
-  is expected to evaluate to a predicate on nodes.
-  There's special rules for keywords (see keyword-pred) and
-  lists ((a b c) yields #(a % b)).
-  Predicates are chained in a hierarchical way � la CSS."
- [selector-form action]
-  (cond
-    (vector? selector-form)
-      (loop [items (seq selector-form) 
-             selector-type self-or-descendants-selector
-             selectors []]
-        (if-let [[x & xs] items]
-          (if (= :> x)
-            (recur xs self-selector selectors)
-            (let [pred (compile-selector-step x)]
-              (recur xs self-or-descendants-selector
-                (conj selectors (selector-type pred action)))))
-          (apply chain-selectors selectors)))
-    (set? selector-form)
-      (apply merge-selectors (map #(compile-selector % action) selector-form))
-    :else
-      (eval selector-form))) 
-               
-  
-(deftemplate-macro at
- "Allows to apply other template-macros to subtrees using selectors." 
- [xml & forms]
-  (let [selector (apply merge-selectors (map #(apply compile-selector %) 
-                                          (partition 2 forms)))]
-    (transform-node xml (step-selector selector xml))))
-
-;; select template-macro
-(declare select-node)  
-
-(defn- select-tag [{:keys [content] :as node} selector]
-  (if-let [action (action selector)]
-    node
-    (let [selected-nodes (map #(select-node % (step-selector selector %)) 
-                           content)] 
-      (some identity selected-nodes))))
-      
-(defn- select-node [node selector]
-  (when (tag? node)
-    (select-tag node selector)))
-
-(deftemplate-macro select
- "Selects a single subnode of the current node and returns it." 
- [xml selector-spec]
-  (let [selector (compile-selector selector-spec identity)]
-    (select-node xml (step-selector selector xml))))
-
 ;; main macros
 (defmacro template 
+ "A template returns a seq of string."
+ ([xml-or-path args form & forms] 
+   `(template ~xml-or-path ~args (at* ~form ~@forms)))
  ([xml-or-path args form]
    (let [xml (html-resource xml-or-path)]
-     `(fn ~args (escaped (flatten (apply-template-macro ~xml ~form))))))
- ([xml-or-path args form & forms] 
-   `(template ~xml-or-path ~args (at ~form ~@forms))))
+     `(fn ~args (emit* (~form ~xml))))))
 
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
  [name xml-or-path args & forms] 
   `(def ~name (template ~xml-or-path ~args ~@forms)))
 
-(defmacro snippet [xml-or-path selector args form & forms]
-  `(template ~xml-or-path ~args
-     (do->
-       (select ~selector)
-       ~(if forms
-          `(at ~form ~@forms)
-          form))))
+(defmacro snippet 
+ "A snippet is a function that returns nodes or nested collections of nodes."
+ [xml-or-path selector args & forms]
+  (let [xml (html-resource xml-or-path)
+        nodes (map z/node (apply zfx/xml-> (z/xml-zip xml) selector))]
+    `(fn ~args
+       (map (at* ~@forms) [~@nodes]))))
 
 (defmacro defsnippet
+ "Define a named snippet -- equivalent to (def name (snippet xml-or-path selector args ...))."
  [name xml-or-path selector args & forms]
  `(def ~name (snippet ~xml-or-path ~selector ~args ~@forms)))
    
