@@ -191,7 +191,9 @@
       (chain descendants-or-self next-chain)))) 
 
 (defn compile-selector [s]
-  (compile-chain s))
+  (if (set? s)
+    (apply union (map compile-selector s)) 
+    (compile-chain s)))
 
 ;; core 
   
