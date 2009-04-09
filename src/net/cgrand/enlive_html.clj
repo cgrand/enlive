@@ -96,40 +96,125 @@
 (defn emit* [node-or-nodes]
   (if (map? node-or-nodes) (emit node-or-nodes) (mapcat emit node-or-nodes)))
       
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; utilities
 
 (defn- not-node? [x]
   (cond (string? x) false (map? x) false :else true))
 
 (defn- flatten [x]
   (remove not-node? (tree-seq not-node? seq x)))
+  
+(defn- flatmap [f xs]
+  (flatten (map f xs)))
 
-(defn convert-selector [selector]
-  (loop [xs (seq selector) descendants true zfx-selector []]
-    (if-let [[x & xs] xs]
-      (cond
-        (= :> x) (recur xs false zfx-selector)
-        descendants (recur xs true (conj zfx-selector zf/descendants x))
-        :else (recur xs true (conj zfx-selector x)))
-      zfx-selector)))
+;; state machine stuff
+;; a state is a pair consisting of a boolean (acceptance) and a seq of functions (functions from loc to state) 
 
+(def accept? first)
+
+(defn hopeless?
+ "Returns true if the state machine cannot succeed. (It's not a necessary condition.)" 
+ [state] (empty? (second state)))
+
+(defn step [state loc]
+  (let [states (map #(% loc) (second state))]
+    [(some accept? states) (mapcat second states)]))    
+  
+(defn union 
+ "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
+ [& states]
+  [(some accept? states) (mapcat second states)])
+  
+(defn intersection
+ "Returns a state machine which succeeds when all specified state machines succeed." 
+ [& states]
+  [(every? accept? states)
+   (when-not (some hopeless? states) 
+     [(fn [loc] (apply intersection (map #(step % loc) states)))])]) 
+
+(defn chain [[x1 fns1] s2]
+  (let [chained-fns1 (map #(fn [loc] (chain (% loc) s2)) fns1)]
+    (if x1
+      [(accept? s2) (concat (second s2) chained-fns1)]
+      [false chained-fns1])))
+
+(def descendants-or-self
+  [true (lazy-seq [(constantly descendants-or-self)])])
+
+(def accept [true nil])
+
+(defn pred [f]
+  [false [(fn [loc]
+            [(and (z/branch? loc) (f (z/node loc))) nil])]])
+
+(defn tag= [tag-name]
+  (pred #(= (:tag %) tag-name)))
+
+(defn id= [id]
+  (pred #(= (-> % :attrs :id) id)))
+
+(defn has-class [classes]
+  (pred #(let [elt-classes (set (-> % :attrs (:class "") (.split "\\s+")))]
+           (every? elt-classes classes))))
+
+;; selector syntax
+(defn compile-keyword [kw]
+  (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
+        tag-pred (if (empty? tag-name) [] [(tag= (keyword tag-name))])
+        ids-pred (for [s etc :when (= \# (first s))] (id= (subs s 1)))
+        classes (set (for [s etc :when (= \. (first s))] (subs s 1)))
+        class-pred (when (seq classes) [(has-class classes)])] 
+    (apply intersection (concat tag-pred ids-pred class-pred))))
+    
+(declare compile-step)
+
+(defn compile-union [s]
+  (apply union (map compile-step s)))      
+    
+(defn compile-intersection [s]
+  (apply union (map compile-step s)))      
+
+(defn compile-step [s]
+  (cond
+    (keyword? s) (compile-keyword s)    
+    (set? s) (compile-union s)    
+    (vector? s) (compile-intersection s)
+    :else (throw (RuntimeException. (str "Unsupported selector step: " (pr-str s))))))
+
+(defn compile-chain [s]
+  (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
+        next-chain (if (seq steps) 
+                     (chain (compile-step step) (compile-chain next-steps))
+                     accept)]
+    (if (seq child-ops)
+      next-chain
+      (chain descendants-or-self next-chain)))) 
+
+(defn compile-selector [s]
+  (compile-chain s))
+
+;; core 
+  
+(defn- children-locs [loc]
+  (take-while identity (iterate z/right (z/down loc))))
+
+(defn- transform-loc [loc previous-state transformation]
+  (if (z/branch? loc)
+    (let [state (step previous-state loc)
+          children (flatmap #(transform-loc % state transformation) (children-locs loc))
+          node (z/make-node loc (z/node loc) children)]
+      (if (accept? state)
+        (transformation node)
+        node))
+    (z/node loc)))
+      
 (defn- transform-1 [node selector transformation]
   (let [root-loc (z/xml-zip node)
-        selected-locs (set (apply zfx/xml-> root-loc (convert-selector selector)))
-        _ (prn "selected:" (count selected-locs) "/" selector)
-        xform (fn xform [loc]
-                (if (z/branch? loc)
-                  (let [children (flatten (map xform (zf/children loc)))
-                        node (z/make-node loc (z/node loc) children)]
-                    (if (selected-locs loc) (transformation node) node))
-                  (z/node loc)))]
-    (xform root-loc)))
+        state (compile-selector selector)]
+    (transform-loc root-loc state transformation)))
 
 (defn transform [nodes selector transformation]
-  (flatten (map #(transform-1 % selector transformation) nodes)))
-
-(defn content [& xs]
-  #(assoc % :content (flatten xs))
+  (flatmap #(transform-1 % selector transformation) nodes))
 
 (defn at* [& rules]
   (fn [node] 
@@ -141,7 +226,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn content [& values]
-  #(assoc % :content values))
+  #(assoc % :content (flatten values)))
     
 (defn set-attr [& kvs]
 	#(let [attrs (into (:attrs %) (partition 2 kvs))]
