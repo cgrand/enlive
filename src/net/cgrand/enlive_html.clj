@@ -160,7 +160,7 @@
 ;; selector syntax
 (defn compile-keyword [kw]
   (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
-        tag-pred (if (empty? tag-name) [] [(tag= (keyword tag-name))])
+        tag-pred (if (#{"" "*"} tag-name) [] [(tag= (keyword tag-name))])
         ids-pred (for [s etc :when (= \# (first s))] (id= (subs s 1)))
         classes (set (for [s etc :when (= \. (first s))] (subs s 1)))
         class-pred (when (seq classes) [(has-class classes)])] 
