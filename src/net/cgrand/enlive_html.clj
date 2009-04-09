@@ -129,7 +129,7 @@
   (flatten (map #(transform-1 % selector transformation) nodes)))
 
 (defn content [& xs]
-  #(assoc % :content xs))
+  #(assoc % :content (flatten xs))
 
 (defn at* [& rules]
   (fn [node] 
