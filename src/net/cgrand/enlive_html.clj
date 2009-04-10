@@ -225,6 +225,18 @@
 (defn at [node & rules]
   ((apply at* rules) node))
 
+(defn select* [loc previous-state]
+  (let [state (step previous-state loc)]
+    (if (accept? state)
+      (list (z/node loc))
+      (mapcat #(select* % state) (children-locs loc))))) 
+      
+(defn select [node selector]
+  (let [state (compile-selector selector)
+        root-loc (z/xml-zip node)]
+    (select* root-loc state)))
+    
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn content [& values]
@@ -249,8 +261,8 @@
  ([xml-or-path args form & forms] 
    `(template ~xml-or-path ~args (at* ~form ~@forms)))
  ([xml-or-path args form]
-   (let [xml (html-resource xml-or-path)]
-     `(fn ~args (emit* (~form ~xml))))))
+   `(let [xml# ~(html-resource xml-or-path)]
+      (fn ~args (emit* (~form xml#))))))
 
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
@@ -261,9 +273,10 @@
  "A snippet is a function that returns nodes or nested collections of nodes."
  [xml-or-path selector args & forms]
   (let [xml (html-resource xml-or-path)
-        nodes (map z/node (apply zfx/xml-> (z/xml-zip xml) selector))]
-    `(fn ~args
-       (map (at* ~@forms) [~@nodes]))))
+        nodes (select xml selector)]
+    `(let [nodes# [~@nodes]] 
+       (fn ~args
+         (flatmap (at* ~@forms) nodes#)))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet xml-or-path selector args ...))."
