@@ -275,7 +275,7 @@
   `(def ~name (template ~source ~args ~@forms)))
 
 (defmacro snippet 
- "A snippet is a function that returns nodes or nested collections of nodes."
+ "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
   (let [xml (html-resource source)
         nodes (select xml selector)]
