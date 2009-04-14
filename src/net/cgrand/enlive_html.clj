@@ -11,8 +11,6 @@
 (ns net.cgrand.enlive-html
   (:require [clojure.xml :as xml])
   (:require [clojure.zip :as z])
-  (:require [clojure.contrib.zip-filter :as zf])
-  (:require [clojure.contrib.zip-filter.xml :as zfx])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]]))
 
 ;; enlive-html is a selector-based templating engine
