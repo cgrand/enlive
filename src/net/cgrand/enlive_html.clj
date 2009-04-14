@@ -160,6 +160,15 @@
   (pred #(let [elt-classes (set (-> % :attrs (:class "") (.split "\\s+")))]
            (every? elt-classes classes))))
 
+(defn attr? [& kws]
+  (pred #(every? (-> % :attrs keys set) kws)))
+  
+(defn attr= [& kvs]
+  (let [ks (take-nth 2 kvs)
+        vs (take-nth 2 (rest kvs))]
+    (pred #(when-let [attrs (:attrs %)] 
+             (= (map attrs ks) vs)))))           
+
 ;; selector syntax
 (defn compile-keyword [kw]
   (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
@@ -177,11 +186,15 @@
 (defn compile-intersection [s]
   (apply union (map compile-step s)))      
 
+(defn compile-predicate [[f & args]]
+  (apply (resolve f) args))
+
 (defn compile-step [s]
   (cond
     (keyword? s) (compile-keyword s)    
     (set? s) (compile-union s)    
     (vector? s) (compile-intersection s)
+    (seq? s) (compile-predicate s)
     :else (throw (RuntimeException. (str "Unsupported selector step: " (pr-str s))))))
 
 (defn compile-chain [s]
