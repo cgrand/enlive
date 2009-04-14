@@ -264,33 +264,36 @@
   #(reduce (fn [nodes f] (flatmap f nodes)) [%] fns))
 
 ;; main macros
-(defmacro template 
- "A template returns a seq of string."
- ([source args form & forms] 
-   `(template ~source ~args (at* ~form ~@forms)))
- ([source args form]
-   `(let [xml# ~(html-resource source)]
-      (fn ~args (emit* (~form xml#))))))
-
-(defmacro deftemplate
- "Defines a template as a function that returns a seq of strings." 
- [name source args & forms] 
-  `(def ~name (template ~source ~args ~@forms)))
-
+(defn- snippet* [nodes args forms]
+  (let [transform (if (next forms) `(at* ~@forms) (first forms))]
+    `(let [nodes# [~@nodes]]
+       (fn ~args
+         (flatmap ~transform nodes#)))))
+    
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
-  (let [xml (html-resource source)
-        nodes (select xml selector)]
-    `(let [nodes# [~@nodes]] 
-       (fn ~args
-         (flatmap (at* ~@forms) nodes#)))))
+  (let [xmls (html-resource source)
+        nodes (mapcat #(select % selector) xmls)]
+    (snippet* nodes args forms)))  
+
+(defmacro template 
+ "A template returns a seq of string."
+ ([source args & forms]
+   (let [nodes (html-resource source)
+         snippet-code (snippet* nodes args forms)]
+    `(comp emit* ~snippet-code))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
  [name source selector args & forms]
  `(def ~name (snippet ~source ~selector ~args ~@forms)))
    
+(defmacro deftemplate
+ "Defines a template as a function that returns a seq of strings." 
+ [name source args & forms] 
+  `(def ~name (template ~source ~args ~@forms)))
+
 (defmacro defsnippets
  [source & specs]
   (let [xml (html-resource source)]
