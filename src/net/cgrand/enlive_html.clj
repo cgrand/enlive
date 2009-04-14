@@ -258,34 +258,34 @@
 ;; main macros
 (defmacro template 
  "A template returns a seq of string."
- ([xml-or-path args form & forms] 
-   `(template ~xml-or-path ~args (at* ~form ~@forms)))
- ([xml-or-path args form]
-   `(let [xml# ~(html-resource xml-or-path)]
+ ([source args form & forms] 
+   `(template ~source ~args (at* ~form ~@forms)))
+ ([source args form]
+   `(let [xml# ~(html-resource source)]
       (fn ~args (emit* (~form xml#))))))
 
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
- [name xml-or-path args & forms] 
-  `(def ~name (template ~xml-or-path ~args ~@forms)))
+ [name source args & forms] 
+  `(def ~name (template ~source ~args ~@forms)))
 
 (defmacro snippet 
  "A snippet is a function that returns nodes or nested collections of nodes."
- [xml-or-path selector args & forms]
-  (let [xml (html-resource xml-or-path)
+ [source selector args & forms]
+  (let [xml (html-resource source)
         nodes (select xml selector)]
     `(let [nodes# [~@nodes]] 
        (fn ~args
          (flatmap (at* ~@forms) nodes#)))))
 
 (defmacro defsnippet
- "Define a named snippet -- equivalent to (def name (snippet xml-or-path selector args ...))."
- [name xml-or-path selector args & forms]
- `(def ~name (snippet ~xml-or-path ~selector ~args ~@forms)))
+ "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
+ [name source selector args & forms]
+ `(def ~name (snippet ~source ~selector ~args ~@forms)))
    
 (defmacro defsnippets
- [xml-or-path & specs]
-  (let [xml (html-resource xml-or-path)]
+ [source & specs]
+  (let [xml (html-resource source)]
    `(do
      ~@(map (fn [[name selector args & forms]]
               `(def ~name (snippet ~xml ~selector ~args ~@forms)))
