@@ -29,17 +29,22 @@
     (.setContentHandler p ch)
     (.parse p s)))
 
-(defn load-html-resource 
+(defn- load-html-resource 
  "Loads and parse an HTML resource and closes the stream."
  [stream] 
-  (with-open [stream stream]
-    (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
+  (list 
+    (with-open [stream stream]
+      (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
 
 (defmulti html-resource type)
 
-(defmethod html-resource java.util.Map
+(defmethod html-resource clojure.lang.IPersistentMap
  [xml-data]
-  xml-data)
+  (list xml-data))
+
+(defmethod html-resource clojure.lang.IPersistentCollection
+ [nodes]
+  (seq nodes))
 
 (defmethod html-resource String
  [path]
