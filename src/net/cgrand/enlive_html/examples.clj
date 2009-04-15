@@ -1,5 +1,5 @@
 (ns net.cgrand.enlive-html.examples
-  (:use [net.cgrand.enlive-html :as html :only [deftemplate at]]))
+  (:use [net.cgrand.enlive-html :as html :only [deftemplate at content set-attr]]))
 
 (deftemplate microblog-template
  "net/cgrand/enlive_html/example.html"  
