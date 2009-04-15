@@ -32,29 +32,26 @@ A selector is either a vector or a set of selectors (denoting grouping).
 
 Each element in the vector is either a combinator, a "simple selector":http://www.w3.org/TR/2009/WD-css3-selectors-20090310/#simple-selectors-dfn or a compound selector (union or intersection), here is a summary:
 
-<pre>
-Enlive                           CSS
-=======================================================
-:>                               >
-:*                               *
-:div                             div
-:div#some-id                     div#some-id
-:div.class1.class2               div.class1.class2
-:*#foo.bar                       *#foo.bar
-:#foo.bar                        #foo.bar
-(attr? :href)                    *[href]
-(attr? :href :title)             *[href][title]
-(attr= :href "foo")              *[href=foo]
-(attr= :href "foo" :title "bar") *[href=foo][title=bar]
-[:a.action (attr? :href)]        a.action[href]
-#{:div :p}                       _no equivalent_
-</pre>
+  Enlive                           CSS
+  =======================================================
+  :>                               >
+  :*                               *
+  :div                             div
+  :div#some-id                     div#some-id
+  :div.class1.class2               div.class1.class2
+  :*#foo.bar                       *#foo.bar
+  :#foo.bar                        #foo.bar
+  (attr? :href)                    *[href]
+  (attr? :href :title)             *[href][title]
+  (attr= :href "foo")              *[href=foo]
+  (attr= :href "foo" :title "bar") *[href=foo][title=bar]
+  [:a.action (attr? :href)]        a.action[href]
+  #{:div :p}                       _no equivalent_
 
 Some examples:
-<pre>
-[:div]                                       div
-[:body :script]                              body script
-#{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
-[#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
-[[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
-</pre>
+
+  [:div]                                       div
+  [:body :script]                              body script
+  #{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
+  [#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
+  [[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
