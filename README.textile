@@ -32,17 +32,20 @@ A selector is either a vector or a set of selectors (denoting union).
 
 Each element in the vector is either a combinator, a "simple selector":http://www.w3.org/TR/2009/WD-css3-selectors-20090310/#simple-selectors-dfn or a compound selector (union or intersection), here is a summary:
 
-|_.Enlive|_.CSS|
-|:>|>|
-|:*|*|
-|:div|div|
-|:div#some-id|div#some-id|
-|:div.class1.class2|div.class1.class2|
-|:*#foo.bar|*#foo.bar|
-|:#foo.bar|#foo.bar|
-|(attr? :href)|*[href]|
-|(attr? :href :title)|*[href][title]|
-|(attr= :href "foo")|*[href=foo]|
-|(attr= :href "foo" :title "bar")|*[href=foo][title=bar]|
-|[:a.action (attr? :href)]|a.action[href]|
-|#{:div :p}|_no equivalent_|
+<pre>
+Enlive                           CSS
+=======================================================
+:>                               >
+:*                               *
+:div                             div
+:div#some-id                     div#some-id
+:div.class1.class2               div.class1.class2
+:*#foo.bar                       *#foo.bar
+:#foo.bar                        #foo.bar
+(attr? :href)                    *[href]
+(attr? :href :title)             *[href][title]
+(attr= :href "foo")              *[href=foo]
+(attr= :href "foo" :title "bar") *[href=foo][title=bar]
+[:a.action (attr? :href)]        a.action[href]
+#{:div :p}                       _no equivalent_
+</pre>
