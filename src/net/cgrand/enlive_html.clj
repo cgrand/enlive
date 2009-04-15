@@ -146,26 +146,40 @@
 
 (def accept [true nil])
 
-(defn pred [f]
+(defn pred 
+ "Turns a predicate function on elements into a predicate-step usable in selectors."
+ [f]
   [false [(fn [loc]
             [(and (z/branch? loc) (f (z/node loc))) nil])]])
 
-(defn tag= [tag-name]
+(defn tag= 
+ "Selector predicate, :foo is as short-hand for (tag= :foo)."
+ [tag-name]
   (pred #(= (:tag %) tag-name)))
 
-(defn id= [id]
+(defn id=
+ "Selector predicate, :#foo is as short-hand for (id= \"foo\")."
+ [id]
   (pred #(= (-> % :attrs :id) id)))
 
-(defn elt-classes [node]
+(defn elt-classes 
+ "Returns class names as a set."
+ [node]
   (set (-> node :attrs (:class "") (.split "\\s+"))))
 
-(defn has-class [classes]
+(defn has-class 
+ "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
+ [classes]
   (pred #(every? (elt-classes %) classes)))
 
-(defn attr? [& kws]
+(defn attr? 
+ "Selector predicate, tests if the specified attributes are present."
+ [& kws]
   (pred #(every? (-> % :attrs keys set) kws)))
   
-(defn attr= [& kvs]
+(defn attr= 
+ "Selector predicate, tests if the specified attributes have the specified values."
+ [& kvs]
   (let [ks (take-nth 2 kvs)
         vs (take-nth 2 (rest kvs))]
     (pred #(when-let [attrs (:attrs %)] 
@@ -252,24 +266,29 @@
     (select* root-loc state)))
     
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn content [& values]
+;; transformations
+
+(defn content
+ "Replaces the content of the node. Values can be nodes or nested collection of nodes." 
+ [& values]
   #(assoc % :content (flatten values)))
 
-(defn set-attr [& kvs]
-  #(let [attrs (reduce (fn [m [k v]] (assoc m k v)) (:attrs % {}) (partition 2 kvs))]
-     (assoc % :attrs attrs)))
+(defn set-attr
+ [& kvs]
+  #(assoc % :attrs (apply assoc (:attrs % {}) kvs)))
      
-(defn remove-attr [xml & attr-names]
-  #(let [attrs (apply dissoc (:attrs %) attr-names)]
-    (assoc % :attrs attrs)))
+(defn remove-attr 
+ [xml & attr-names]
+  #(assoc % :attrs (apply dissoc (:attrs %) attr-names)))
     
-(defn add-class [& classes]
+(defn add-class 
+ [& classes]
   #(let [classes (into (elt-classes %) classes)]
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
 
-(defn remove-class [& classes]
+(defn remove-class 
+ [& classes]
   #(let [classes (apply disj (elt-classes %) classes)
          attrs (:attrs %)
          attrs (if (empty? classes) 

@@ -16,3 +16,33 @@ Nodes are transformed deep-first, that is: if a selector selects several nodes, 
    /B                                                                             /(T B)
   A    if A and B are selected and transformed by T the the resulting tree is (T A      )
    \C                                                                             \C
+   
+
+h2. Templates and snippets
+
+A snippet is a function that returns a seq of nodes, it can be used as a building block for more complex templates.
+
+A template is a function that returns a seq of string -- basically it's a snippet whose output is serialized. Templates return a seq of strings to avoid building the whole string.
+
+Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, an URI, an URL, an element or a seq of nodes).
+
+h2. Selectors syntax
+
+A selector is either a vector or a set of selectors (denoting union).
+
+Each element in the vector is either a combinator, a "simple selector":http://www.w3.org/TR/2009/WD-css3-selectors-20090310/#simple-selectors-dfn or a compound selector (union or intersection), here is a summary:
+
+|_.Enlive|_.CSS|
+|:>|>|
+|:*|*|
+|:div|div|
+|:div#some-id|div#some-id|
+|:div.class1.class2|div.class1.class2|
+|:*#foo.bar|*#foo.bar|
+|:#foo.bar|#foo.bar|
+|(attr? :href)|*[href]|
+|(attr? :href :title)|*[href][title]|
+|(attr= :href "foo")|*[href=foo]|
+|(attr= :href "foo" :title "bar")|*[href=foo][title=bar]|
+|[:a.action (attr? :href)]|a.action[href]|
+|#{:div :p}|_no equivalent_|
