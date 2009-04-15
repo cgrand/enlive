@@ -156,9 +156,11 @@
 (defn id= [id]
   (pred #(= (-> % :attrs :id) id)))
 
+(defn elt-classes [node]
+  (set (-> node :attrs (:class "") (.split "\\s+"))))
+
 (defn has-class [classes]
-  (pred #(let [elt-classes (set (-> % :attrs (:class "") (.split "\\s+")))]
-           (every? elt-classes classes))))
+  (pred #(every? (elt-classes %) classes)))
 
 (defn attr? [& kws]
   (pred #(every? (-> % :attrs keys set) kws)))
@@ -254,14 +256,26 @@
 
 (defn content [& values]
   #(assoc % :content (flatten values)))
-    
+
 (defn set-attr [& kvs]
-	#(let [attrs (into (:attrs %) (partition 2 kvs))]
- 	  (assoc % :attrs attrs)))
+  #(let [attrs (reduce (fn [m [k v]] (assoc m k v)) (:attrs % {}) (partition 2 kvs))]
+     (assoc % :attrs attrs)))
      
 (defn remove-attr [xml & attr-names]
   #(let [attrs (apply dissoc (:attrs %) attr-names)]
     (assoc % :attrs attrs)))
+    
+(defn add-class [& classes]
+  #(let [classes (into (elt-classes %) classes)]
+     (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
+
+(defn remove-class [& classes]
+  #(let [classes (apply disj (elt-classes %) classes)
+         attrs (:attrs %)
+         attrs (if (empty? classes) 
+                 (dissoc attrs :class) 
+                 (assoc attrs :class (apply str (interpose \space classes))))]
+     (assoc % :attrs attrs)))
 
 (comment deftemplate-macro xhtml-strict [xml & forms]
   `(escaped (list
