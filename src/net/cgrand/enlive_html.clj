@@ -231,15 +231,12 @@
         state (compile-selector selector)]
     (transform-loc root-loc state transformation)))
 
-(defn transform [nodes selector transformation]
+(defn transform [nodes [selector transformation]]
   (flatmap #(transform-1 % selector transformation) nodes))
 
-(defn at* [& rules]
-  (fn [node] 
-    (reduce #(apply transform %1 %2) [node] (partition 2 rules))))
-    
-(defn at [node & rules]
-  ((apply at* rules) node))
+(defmacro at [node & rules]
+  (let [quoted-rules (map (fn [[k v]] [(list 'quote k) v]) (partition 2 rules))]
+    `(reduce transform [~node] [~@quoted-rules]))) 
 
 (defn select* [loc previous-state]
   (let [state (step previous-state loc)]
@@ -277,25 +274,22 @@
   #(reduce (fn [nodes f] (flatmap f nodes)) [%] fns))
 
 ;; main macros
-(defn- snippet* [nodes args forms]
-  (let [transform (if (next forms) `(at* ~@forms) (first forms))]
-    `(let [nodes# [~@nodes]]
+(defmacro snippet* [nodes args & forms]
+  (let [transform (if (next forms) `(fn [node#] (at node# ~@forms)) (first forms))]
+    `(let [nodes# ~nodes]
        (fn ~args
          (flatmap ~transform nodes#)))))
     
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
-  (let [xmls (html-resource source)
-        nodes (mapcat #(select % selector) xmls)]
-    (snippet* nodes args forms)))  
+  `(let [xmls# (html-resource ~source)]
+     (snippet* (mapcat (fn [x#] (select x# '~selector)) xmls#) ~args ~@forms)))  
 
 (defmacro template 
  "A template returns a seq of string."
  ([source args & forms]
-   (let [nodes (html-resource source)
-         snippet-code (snippet* nodes args forms)]
-    `(comp emit* ~snippet-code))))
+   `(comp emit* (snippet* (html-resource ~source) ~args ~@forms))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
