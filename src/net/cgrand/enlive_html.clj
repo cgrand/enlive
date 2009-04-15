@@ -54,6 +54,10 @@
  [file]
   (load-html-resource (java.io.FileInputStream. file)))
 
+(defmethod html-resource java.io.Reader
+ [reader]
+  (load-html-resource reader))
+
 (defmethod html-resource java.net.URL
  [#^java.net.URL url]
   (load-html-resource (.getContent url)))
