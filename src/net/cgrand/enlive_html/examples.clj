@@ -11,7 +11,7 @@
                  (at %
                    [:h2 :a] (content title)
                    [:p] (content body)))
-  [[:a '(attr? :href)]] #(assoc-in % [:attrs :title] "it's a link"))
+  [[:a (attr? :href)]] #(assoc-in % [:attrs :title] "it's a link"))
               
 
 
