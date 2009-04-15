@@ -204,7 +204,7 @@
   (apply union (map compile-step s)))      
     
 (defn compile-intersection [s]
-  (apply union (map compile-step s)))      
+  (apply intersection (map compile-step s)))      
 
 (defn compile-predicate [[f & args]]
   (apply (resolve f) args))
