@@ -107,7 +107,7 @@
 (defn- flatten [x]
   (remove not-node? (tree-seq not-node? seq x)))
   
-(defn- flatmap [f xs]
+(defn flatmap [f xs]
   (flatten (map f xs)))
 
 ;; state machine stuff
