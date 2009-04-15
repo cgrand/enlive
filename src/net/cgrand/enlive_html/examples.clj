@@ -9,8 +9,9 @@
   [:div.no-msg] #(when (empty? posts) %) 
   [:div.post] #(for [{:keys [title body]} posts]
                  (at %
-                   [:h2] (content title)
-                   [:p] (content body))))
+                   [:h2 :a] (content title)
+                   [:p] (content body)))
+  [[:a '(attr? :href)]] #(assoc-in % [:attrs :title] "it's a link"))
               
 
 
