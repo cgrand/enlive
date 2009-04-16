@@ -9,6 +9,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html
+  (:refer-clojure :exclude [empty])
   (:require [clojure.xml :as xml])
   (:require [clojure.zip :as z])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is]]))
@@ -159,6 +160,12 @@
   [false [(fn [loc]
             [(and (z/branch? loc) (f (z/node loc))) nil])]])
 
+(defn loc-pred 
+ "Turns a predicate function on locs (see clojure.core.zip) into a predicate-step usable in selectors."
+ [f]
+  [false [(fn [loc]
+            [(and (z/branch? loc) (f loc)) nil])]])
+
 (defn tag= 
  "Selector predicate, :foo is as short-hand for (tag= :foo)."
  [tag-name]
@@ -169,28 +176,117 @@
  [id]
   (pred #(= (-> % :attrs :id) id)))
 
-(defn elt-classes 
- "Returns class names as a set."
- [node]
-  (set (-> node :attrs (:class "") (.split "\\s+"))))
-
-(defn has-class 
- "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
- [& classes]
-  (pred #(every? (elt-classes %) classes)))
+(defn attr-values 
+ "Returns the whitespace-separated values of the specified attr as a set."
+ [node attr]
+  (set (-> node :attrs (attr "") (.split "\\s+"))))
 
 (defn attr? 
  "Selector predicate, tests if the specified attributes are present."
  [& kws]
   (pred #(every? (-> % :attrs keys set) kws)))
   
-(defn attr= 
- "Selector predicate, tests if the specified attributes have the specified values."
- [& kvs]
-  (let [ks (take-nth 2 kvs)
-        vs (take-nth 2 (rest kvs))]
-    (pred #(when-let [attrs (:attrs %)] 
-             (= (map attrs ks) vs)))))           
+(defn- every?+ [pred & colls]
+  (every? #(apply pred %) (apply map vector colls))) 
+
+(defn- multi-attr-pred 
+ [single-attr-pred]
+  (fn [& kvs]
+    (let [ks (take-nth 2 kvs)
+          vs (take-nth 2 (rest kvs))]
+      (pred #(when-let [attrs (:attrs %)]
+               (every?+ single-attr-pred (map attrs ks) vs))))))           
+
+(def #^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
+ attr= 
+  (multi-attr-pred =))
+
+(defn attr-has
+ "Selector predicate, tests if the specified whitespace-seperated attribute contains the specified values. See CSS ~="
+ [attr & values]
+  (pred #(every? (attr-values % attr) values)))
+ 
+(defn has-class 
+ "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
+ [& classes]
+  (apply attr-has :class classes)) 
+
+(defn- starts-with? [#^String s #^String prefix]
+  (and s (.startsWith s prefix)))
+
+(defn- ends-with? [#^String s #^String suffix]
+  (and s (.endsWith s suffix)))
+
+(defn- contains-substring? [#^String s #^String substring]
+  (and s (<= 0 (.indexOf s substring))))
+
+(def attr-starts
+  (multi-attr-pred starts-with?))
+
+(def attr-ends
+  (multi-attr-pred ends-with?))
+
+(def attr-contains
+  (multi-attr-pred contains-substring?))
+
+(defn- is-first-segment? [#^String s #^String segment]
+  (and s 
+    (.startsWith s segment)
+    (= \- (.charAt s (count segment)))))
+             
+(def attr|=           
+  (multi-attr-pred is-first-segment?))
+
+(def root 
+  (loc-pred #(-> % z/up nil?)))
+
+(defn- nth? 
+ [f a b]
+  (if (zero? a)
+    #(= (-> (f %) count inc) b)
+    #(let [an+b (-> (filter map? (f %)) count inc)
+           an (- an+b b)]
+       (and (zero? (rem an a)) (<= 0 (quot an a))))))
+      
+(defn nth-child
+ ([b] (nth-child 0 b))
+ ([a b] (loc-pred (nth? z/lefts a b))))
+      
+(defn nth-last-child
+ ([b] (nth-last-child 0 b))
+ ([a b] (loc-pred (nth? z/rights a b))))
+
+(defn- filter-of-type [f]
+  (fn [loc]
+    (let [tag (-> loc z/node :tag)
+          pred #(= (:tag %) tag)]
+      (filter pred (f loc)))))
+
+(defn nth-of-type
+ ([b] (nth-of-type 0 b))
+ ([a b] (loc-pred (nth? (filter-of-type z/lefts) a b))))
+
+(defn nth-last-of-type
+ ([b] (nth-last-of-type 0 b))
+ ([a b] (loc-pred (nth? (filter-of-type z/rights) a b))))
+
+(def first-child (nth-child 1))      
+      
+(def last-child (nth-last-child 1))      
+      
+(def first-of-type (nth-of-type 1))      
+      
+(def last-of-type (nth-last-of-type 1))      
+
+(def only-child (intersection first-child last-child))  
+
+(def only-of-type (intersection first-of-type last-of-type))
+
+(def empty (pred #(empty? (remove empty? (:content %)))))
+
+(def odd (nth-child 2 1))
+
+(def even (nth-child 2 0))
 
 ;; selector syntax
 (defn- simplify-associative [[op & forms]]
@@ -223,16 +319,12 @@
 (defn compile-intersection [s]
   (emit-intersection (map compile-step s)))      
 
-(defn compile-predicate [l]
-  l)
-
 (defn compile-step [s]
   (cond
     (keyword? s) (compile-keyword s)    
     (set? s) (compile-union s)    
     (vector? s) (compile-intersection s)
-    (seq? s) (compile-predicate s)
-    :else (throw (RuntimeException. (str "Unsupported selector step: " (pr-str s))))))
+    :else s))
 
 (defn compile-chain [s]
   (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
@@ -258,7 +350,9 @@
   (if (z/branch? loc)
     (let [state (step previous-state loc)
           children (flatmap #(transform-loc % state transformation) (children-locs loc))
-          node (z/make-node loc (z/node loc) children)]
+          node (if (= children (z/children loc)) 
+                 (z/node loc) 
+                 (z/make-node loc (z/node loc) children))]
       (if (accept? state)
         (transformation node)
         node))
@@ -300,12 +394,12 @@
     
 (defn add-class 
  [& classes]
-  #(let [classes (into (elt-classes %) classes)]
+  #(let [classes (into (attr-values % :class) classes)]
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
 
 (defn remove-class 
  [& classes]
-  #(let [classes (apply disj (elt-classes %) classes)
+  #(let [classes (apply disj (attr-values % :class) classes)
          attrs (:attrs %)
          attrs (if (empty? classes) 
                  (dissoc attrs :class) 
