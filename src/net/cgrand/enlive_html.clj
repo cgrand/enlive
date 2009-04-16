@@ -139,11 +139,14 @@
    (when-let [states (seq (remove hopeless? states))] 
      [(fn [loc] (apply intersection (map #(step % loc) states)))])]) 
 
-(defn chain [[x1 fns1] s2]
-  (let [chained-fns1 (map #(fn [loc] (chain (% loc) s2)) fns1)]
-    (if x1
-      [(accept? s2) (concat (second s2) chained-fns1)]
-      [false chained-fns1])))
+(defn chain 
+  ([s] s)
+  ([[x1 fns1] s2]
+    (let [chained-fns1 (map #(fn [loc] (chain (% loc) s2)) fns1)]
+      (if x1
+        [(accept? s2) (concat (second s2) chained-fns1)]
+        [false chained-fns1])))
+  ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
 
 (def descendants-or-self
   [true (lazy-seq [(constantly descendants-or-self)])])
@@ -190,21 +193,35 @@
              (= (map attrs ks) vs)))))           
 
 ;; selector syntax
+(defn- simplify-associative [[op & forms]]
+  (if (next forms)
+    (cons op (mapcat #(if (and (seq? %) (= op (first %))) (rest %) (list %)) forms)) 
+    (first forms)))
+
+(defn- emit-union [forms]
+  (simplify-associative (cons `union forms)))
+
+(defn- emit-intersection [forms]
+  (simplify-associative (cons `intersection forms)))
+
+(defn- emit-chain [forms]
+  (simplify-associative (cons `chain forms)))
+
 (defn compile-keyword [kw]
   (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
         tag-pred (if (#{"" "*"} tag-name) [] [`(tag= ~(keyword tag-name))])
         ids-pred (for [s etc :when (= \# (first s))] `(id= ~(subs s 1)))
         classes (set (for [s etc :when (= \. (first s))] (subs s 1)))
         class-pred (when (seq classes) [`(has-class ~@classes)])] 
-    `(intersection ~@(concat tag-pred ids-pred class-pred))))
+    (emit-intersection (concat tag-pred ids-pred class-pred))))
     
 (declare compile-step)
 
 (defn compile-union [s]
-  `(union ~@(map compile-step s)))      
+  (emit-union (map compile-step s)))      
     
 (defn compile-intersection [s]
-  `(intersection ~@(map compile-step s)))      
+  (emit-intersection (map compile-step s)))      
 
 (defn compile-predicate [l]
   l)
@@ -221,15 +238,15 @@
   (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
         next-chain (when (seq steps)
                      (if (seq next-steps)
-                       `(chain ~(compile-step step) ~(compile-chain next-steps))
+                       (emit-chain [(compile-step step) (compile-chain next-steps)])
                        (compile-step step)))]
     (if (seq child-ops)
       next-chain      
-      `(chain descendants-or-self ~next-chain)))) 
+      (emit-chain [`descendants-or-self next-chain])))) 
 
 (defn compile-selector [s]
   (if (set? s)
-    `(union ~@(map compile-selector s)) 
+    (emit-union (map compile-selector s)) 
     (compile-chain s)))
 
 ;; core 
