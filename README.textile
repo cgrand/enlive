@@ -27,7 +27,9 @@ A template is a function that returns a seq of string -- basically it's a snippe
 
 Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, an URI, an URL, an element or a seq of nodes).
 
-h2. Selectors syntax
+h2. Selectors
+
+h3. Syntax
 
 A selector is either a vector or a set of selectors (denoting grouping).
 
@@ -60,3 +62,18 @@ Some examples:
   [#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
   [[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
 </pre>
+
+h3. Compilation
+
+At macroexpansion-time in @select@, @snippet@ and @at@ macros, selectors are compiled to code:
+
+<pre>
+  net.cgrand.enlive-html=> (compile-selector '[:div])
+  (chain descendants-or-self (tag= :div))
+  net.cgrand.enlive-html=> (compile-selector '[:body :script])
+  (chain descendants-or-self (tag= :body) descendants-or-self (tag= :script))
+  net.cgrand.enlive-html=> (compile-selector '[#{:ul.outline :ol.outline} :> :li])
+  (chain descendants-or-self (union (intersection (tag= :ol) (has-class "outline")) (intersection (tag= :ul) (has-class "outline"))) (tag= :li))
+  net.cgrand.enlive-html=> (compile-selector '[[:div (attr= :title "foobar")]])
+  (chain descendants-or-self (intersection (tag= :div) (attr= :title "foobar")))
+</pre> 
