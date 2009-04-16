@@ -115,7 +115,7 @@
   (flatten (map f xs)))
 
 ;; state machine stuff
-;; a state is a pair consisting of a boolean (acceptance) and a seq of functions (functions from loc to state) 
+;; a state is a pair consisting of a boolean (acceptance) and a seq of functions (functions from loc to state)
 
 (def accept? first)
 
@@ -173,7 +173,7 @@
 
 (defn has-class 
  "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
- [classes]
+ [& classes]
   (pred #(every? (elt-classes %) classes)))
 
 (defn attr? 
@@ -192,22 +192,22 @@
 ;; selector syntax
 (defn compile-keyword [kw]
   (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
-        tag-pred (if (#{"" "*"} tag-name) [] [(tag= (keyword tag-name))])
-        ids-pred (for [s etc :when (= \# (first s))] (id= (subs s 1)))
+        tag-pred (if (#{"" "*"} tag-name) [] [`(tag= ~(keyword tag-name))])
+        ids-pred (for [s etc :when (= \# (first s))] `(id= ~(subs s 1)))
         classes (set (for [s etc :when (= \. (first s))] (subs s 1)))
-        class-pred (when (seq classes) [(has-class classes)])] 
-    (apply intersection (concat tag-pred ids-pred class-pred))))
+        class-pred (when (seq classes) [`(has-class ~@classes)])] 
+    `(intersection ~@(concat tag-pred ids-pred class-pred))))
     
 (declare compile-step)
 
 (defn compile-union [s]
-  (apply union (map compile-step s)))      
+  `(union ~@(map compile-step s)))      
     
 (defn compile-intersection [s]
-  (apply intersection (map compile-step s)))      
+  `(intersection ~@(map compile-step s)))      
 
-(defn compile-predicate [[f & args]]
-  (apply (resolve f) args))
+(defn compile-predicate [l]
+  l)
 
 (defn compile-step [s]
   (cond
@@ -219,16 +219,17 @@
 
 (defn compile-chain [s]
   (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
-        next-chain (if (seq steps) 
-                     (chain (compile-step step) (compile-chain next-steps))
-                     accept)]
+        next-chain (when (seq steps)
+                     (if (seq next-steps)
+                       `(chain ~(compile-step step) ~(compile-chain next-steps))
+                       (compile-step step)))]
     (if (seq child-ops)
-      next-chain
-      (chain descendants-or-self next-chain)))) 
+      next-chain      
+      `(chain descendants-or-self ~next-chain)))) 
 
 (defn compile-selector [s]
   (if (set? s)
-    (apply union (map compile-selector s)) 
+    `(union ~@(map compile-selector s)) 
     (compile-chain s)))
 
 ;; core 
@@ -246,17 +247,15 @@
         node))
     (z/node loc)))
       
-(defn- transform-1 [node selector transformation]
-  (let [root-loc (z/xml-zip node)
-        state (compile-selector selector)]
-    (transform-loc root-loc state transformation)))
+(defn transform [nodes [state transformation]]
+  (flatmap #(transform-loc (z/xml-zip %) state transformation) nodes))
 
-(defn transform [nodes [selector transformation]]
-  (flatmap #(transform-1 % selector transformation) nodes))
+(defn at* [nodes rules]
+  (reduce transform nodes rules))
 
 (defmacro at [node & rules]
-  (let [quoted-rules (map (fn [[k v]] [(list 'quote k) v]) (partition 2 rules))]
-    `(reduce transform [~node] [~@quoted-rules]))) 
+  (let [compiled-rules (map (fn [[k v]] [(compile-selector k) v]) (partition 2 rules))]
+    `(at* [~node] [~@compiled-rules]))) 
 
 (defn select* [loc previous-state]
   (let [state (step previous-state loc)]
@@ -264,12 +263,8 @@
       (list (z/node loc))
       (mapcat #(select* % state) (children-locs loc))))) 
       
-(defn select [node selector]
-  (let [state (compile-selector selector)
-        root-loc (z/xml-zip node)]
-    (select* root-loc state)))
-    
-
+(defmacro select [node selector]
+  `(select* (z/xml-zip ~node) ~(compile-selector selector)))
 
 ;; transformations
 
@@ -320,8 +315,9 @@
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
-  `(let [xmls# (html-resource ~source)]
-     (snippet* (mapcat (fn [x#] (select x# '~selector)) xmls#) ~args ~@forms)))  
+  `(let [xmls# (html-resource ~source)
+         state# ~(compile-selector selector)]
+     (snippet* (mapcat (fn [x#] (select* (z/xml-zip x#) state#)) xmls#) ~args ~@forms)))  
 
 (defmacro template 
  "A template returns a seq of string."
