@@ -13,10 +13,11 @@ Rules are applied top-down: the first rule transforms the whole tree and the res
 
 Nodes are transformed deep-first, that is: if a selector selects several nodes, descendants are transformed first. Hence, when the transformation is applied to an ancestor, you can "see" the transformed descendants.
 
+<pre>
    /B                                                                             /(T B)
   A    if A and B are selected and transformed by T the the resulting tree is (T A      )
    \C                                                                             \C
-   
+</pre>
 
 h2. Templates and snippets
 
