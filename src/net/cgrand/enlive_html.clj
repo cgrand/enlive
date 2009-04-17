@@ -304,7 +304,7 @@
 (defn- emit-chain [forms]
   (simplify-associative (cons `chain forms)))
 
-(defn compile-keyword [kw]
+(defn- compile-keyword [kw]
   (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
         tag-pred (if (#{"" "*"} tag-name) [] [`(tag= ~(keyword tag-name))])
         ids-pred (for [s etc :when (= \# (first s))] `(id= ~(subs s 1)))
@@ -314,20 +314,20 @@
     
 (declare compile-step)
 
-(defn compile-union [s]
+(defn- compile-union [s]
   (emit-union (map compile-step s)))      
     
-(defn compile-intersection [s]
+(defn- compile-intersection [s]
   (emit-intersection (map compile-step s)))      
 
-(defn compile-step [s]
+(defn- compile-step [s]
   (cond
     (keyword? s) (compile-keyword s)    
     (set? s) (compile-union s)    
     (vector? s) (compile-intersection s)
     :else s))
 
-(defn compile-chain [s]
+(defn- compile-chain [s]
   (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
         next-chain (when (seq steps)
                      (if (seq next-steps)
