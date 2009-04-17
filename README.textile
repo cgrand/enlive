@@ -30,7 +30,7 @@ A snippet is a function that returns a seq of nodes, it can be used as a buildin
 
 A template is a function that returns a seq of string -- basically it's a snippet whose output is serialized. Templates return a seq of strings to avoid building the whole string.
 
-Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, a Reader, an URI, an URL, an element or a seq of nodes).
+Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, a Reader, an InputStream, an URI, an URL, an element or a seq of nodes).
 
 h2. Selectors
 
