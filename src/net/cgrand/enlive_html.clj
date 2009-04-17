@@ -401,7 +401,7 @@
   #(assoc % :attrs (apply assoc (:attrs % {}) kvs)))
      
 (defn remove-attr 
- [xml & attr-names]
+ [& attr-names]
   #(assoc % :attrs (apply dissoc (:attrs %) attr-names)))
     
 (defn add-class 
