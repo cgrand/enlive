@@ -96,7 +96,7 @@ Some examples:
 
 h3. Compilation
 
-At macroexpansion-time in @select@, @snippet@ and @at@ macros, selectors are compiled to code:
+At macroexpansion-time in @select@, @snippet@ and @at@ macros, selectors are compiled to code: (all expansions are edited for clarity)
 
 <pre>
   net.cgrand.enlive-html=> (compile-selector '[:div])
@@ -107,4 +107,26 @@ At macroexpansion-time in @select@, @snippet@ and @at@ macros, selectors are com
   (chain descendants-or-self (union (intersection (tag= :ol) (has-class "outline")) (intersection (tag= :ul) (has-class "outline"))) (tag= :li))
   net.cgrand.enlive-html=> (compile-selector '[[:div (attr= :title "foobar")]])
   (chain descendants-or-self (intersection (tag= :div) (attr= :title "foobar")))
-</pre> 
+</pre>
+
+@(compile-selector '[:div])@ is equivalent to @(macroexpand-1 '(selector [:div]))@.
+
+@at@, @select@, @snippet@ are macros that expect a selector to be passed. If you want to use a value instead of the selector, you have to use @at*@, @select*@ and @snippet*@ which are the functions behind the macro sugar.
+
+<pre>
+  net.cgrand.enlive-html=> (macroexpand-1 '(at node [:div] (content "It's a div")))
+  (at* [node] (selector [:div]) (content "It's a div"))
+  net.cgrand.enlive-html=> (macroexpand-1 '(select some-html some-selector))
+  (select* some-html (selector some-selector))
+</pre>
+
+The relation between @snippet@ and @snippet*@ is more complex: @snippet*@ doesn't not take a selector, you have to select your nodes before (through @select@ or @select*@). 
+
+<pre>
+  net.cgrand.enlive-html=> (-> '(snippet a-source [:div#foo] [args] selector1 transformation1) macroexpand-1)
+  (snippet* (select (html-resource a-source) [:div#foo]) [args] selector1 transformation1)
+  net.cgrand.enlive-html=> (-> '(snippet a-source [:div#foo] [args] selector1 transformation1) macroexpand-1 macroexpand-1)
+  (let [nodes__4595__auto__ (select (html-resource a-source) [:div#foo])] 
+    (fn [args] 
+      (flatmap #(at % selector1 transformation1)) nodes__4595__auto__)))
+</pre>
