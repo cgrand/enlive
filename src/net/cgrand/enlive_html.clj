@@ -361,21 +361,26 @@
 (defn transform [nodes [state transformation]]
   (flatmap #(transform-loc (z/xml-zip %) state transformation) nodes))
 
-(defn at* [nodes rules]
-  (reduce transform nodes rules))
+(defn at* [nodes & rules]
+  (reduce transform nodes (partition 2 rules)))
+
+(defmacro selector [selector]
+  (compile-selector selector))
 
 (defmacro at [node & rules]
-  (let [compiled-rules (map (fn [[k v]] [(compile-selector k) v]) (partition 2 rules))]
-    `(at* [~node] [~@compiled-rules]))) 
+  `(at* [~node] ~@(map #(%1 %2) (cycle [#(list `selector %) identity]) rules)))
 
-(defn select* [loc previous-state]
-  (let [state (step previous-state loc)]
-    (if (accept? state)
-      (list (z/node loc))
-      (mapcat #(select* % state) (children-locs loc))))) 
+(defn select* [nodes state]
+  (let [select1 
+         (fn select1 [loc previous-state] 
+           (let [state (step previous-state loc)]
+             (if (accept? state)
+               (list (z/node loc))
+               (mapcat #(select1 % state) (children-locs loc)))))]
+    (mapcat #(select1 (z/xml-zip %) state) nodes)))
       
-(defmacro select [node selector]
-  `(select* (z/xml-zip ~node) ~(compile-selector selector)))
+(defmacro select [nodes selector]
+  `(select* ~nodes (selector ~selector)))
 
 ;; transformations
 
@@ -426,9 +431,7 @@
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
-  `(let [xmls# (html-resource ~source)
-         state# ~(compile-selector selector)]
-     (snippet* (mapcat (fn [x#] (select* (z/xml-zip x#) state#)) xmls#) ~args ~@forms)))  
+  `(snippet* (select (html-resource ~source) ~selector) ~args ~@forms))  
 
 (defmacro template 
  "A template returns a seq of string."
