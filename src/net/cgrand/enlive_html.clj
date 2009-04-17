@@ -389,6 +389,12 @@
  [& values]
   #(assoc % :content (flatten values)))
 
+(defn html-content
+ "Replaces the content of the node. Values are string of html."
+ [& values]
+  #(let [content (-> (apply str "<bogon>" values) java.io.StringReader. html-resource first :content)]
+     (assoc % :content content))) 
+
 (defn set-attr
  [& kvs]
   #(assoc % :attrs (apply assoc (:attrs % {}) kvs)))
