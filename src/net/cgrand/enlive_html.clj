@@ -69,12 +69,12 @@
   (html-resource (.toURL uri)))
 
 
-(defn xml-str
+(defn- xml-str
  "Like clojure.core/str but escapes < > and &."
  [x]
   (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;")))
   
-(defn attr-str
+(defn- attr-str
  "Like clojure.core/str but escapes < > & and \"."
  [x]
   (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;") (.replace "\"" "&quot;")))
@@ -83,11 +83,11 @@
 
 (declare emit)
 
-(defn emit-attrs [attrs]
+(defn- emit-attrs [attrs]
   (mapcat (fn [[k v]]
             [" " (name k) "=\"" (attr-str v) "\""]) attrs))
 
-(defn emit-tag [tag]
+(defn- emit-tag [tag]
   (let [name (-> tag :tag name)]
     (concat ["<" name]
       (emit-attrs (:attrs tag))
