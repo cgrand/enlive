@@ -34,7 +34,7 @@
     (with-open [stream stream]
       (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
 
-(defmulti html-resource type)
+(defmulti html-resource "Loads an HTML resource, returns a seq of nodes." type)
 
 (defmethod html-resource clojure.lang.IPersistentMap
  [xml-data]
@@ -125,7 +125,9 @@
  "Returns true if the state machine cannot succeed. (It's not a necessary condition.)" 
  [state] (empty? (second state)))
 
-(defn step [state loc]
+(defn step
+ "Returns the next state."  
+ [state loc]
   (let [states (map #(% loc) (second state))]
     [(some accept? states) (mapcat second states)]))    
   
@@ -221,13 +223,16 @@
 (defn- contains-substring? [#^String s #^String substring]
   (and s (<= 0 (.indexOf s substring))))
 
-(def attr-starts
+(def #^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."} 
+ attr-starts
   (multi-attr-pred starts-with?))
 
-(def attr-ends
+(def #^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."} 
+ attr-ends
   (multi-attr-pred ends-with?))
 
-(def attr-contains
+(def #^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."} 
+ attr-contains
   (multi-attr-pred contains-substring?))
 
 (defn- is-first-segment? [#^String s #^String segment]
@@ -235,7 +240,8 @@
     (.startsWith s segment)
     (= \- (.charAt s (count segment)))))
              
-(def attr|=           
+(def #^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS |= ."}
+ attr|=           
   (multi-attr-pred is-first-segment?))
 
 (def root 
@@ -250,10 +256,12 @@
        (and (zero? (rem an a)) (<= 0 (quot an a))))))
       
 (defn nth-child
+ "Selector step, tests if the node has an+b-1 siblings on its left. See CSS :nth-child."
  ([b] (nth-child 0 b))
  ([a b] (loc-pred (nth? z/lefts a b))))
       
 (defn nth-last-child
+ "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
  ([b] (nth-last-child 0 b))
  ([a b] (loc-pred (nth? z/rights a b))))
 
@@ -264,10 +272,12 @@
       (filter pred (f loc)))))
 
 (defn nth-of-type
+ "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
  ([b] (nth-of-type 0 b))
  ([a b] (loc-pred (nth? (filter-of-type z/lefts) a b))))
 
 (defn nth-last-of-type
+ "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
  ([b] (nth-last-of-type 0 b))
  ([a b] (loc-pred (nth? (filter-of-type z/rights) a b))))
 
@@ -365,7 +375,9 @@
 (defn at* [nodes & rules]
   (reduce transform nodes (partition 2 rules)))
 
-(defmacro selector [selector]
+(defmacro selector
+ "Turns the selector into clojure code." 
+ [selector]
   (compile-selector selector))
 
 (defmacro at [node & rules]
@@ -380,7 +392,9 @@
                (mapcat #(select1 % state) (children-locs loc)))))]
     (mapcat #(select1 (z/xml-zip %) state) nodes)))
       
-(defmacro select [nodes selector]
+(defmacro select
+ "Returns the seq of nodes and sub-nodes matched by the specified selector."
+ [nodes selector]
   `(select* ~nodes (selector ~selector)))
 
 ;; transformations
@@ -397,14 +411,17 @@
      (assoc % :content content))) 
 
 (defn set-attr
+ "Assocs attributes on the selected node."
  [& kvs]
   #(assoc % :attrs (apply assoc (:attrs % {}) kvs)))
      
 (defn remove-attr 
+ "Dissocs attributes on the selected node."
  [& attr-names]
   #(assoc % :attrs (apply dissoc (:attrs %) attr-names)))
     
-(defn add-class 
+(defn add-class
+ "Adds the specified classes to the selected node." 
  [& classes]
   #(let [classes (into (attr-values % :class) classes)]
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
