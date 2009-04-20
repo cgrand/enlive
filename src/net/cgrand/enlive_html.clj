@@ -584,3 +584,11 @@
 (def odd (nth-child 2 1))
 
 (def even (nth-child 2 0))
+
+(defn has* [state]
+  (pred #(boolean (seq (select* [%] state)))))
+
+(defmacro has [selector]
+  `(has* (chain any (selector ~selector))))
+  
+(def but complement-state) 
