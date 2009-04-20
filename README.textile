@@ -1,14 +1,11 @@
+h1. DON'T USE THIS BRANCH! It's going to get deprecated very soon. Use http://github.com/cgrand/enlive/tree/right instead.
+
 h1. Enlive
 
 Enlive is a selector-based (� la CSS) templating library for Clojure. 
 
 An Enlive template has two parts: a HTML file and a @deftemplate@ form
 somewhere in a clj file.
-
-<div style="font: bold 36pt;">
-DON'T USE THIS BRANCH! It's going to get deprecated very soon 
-Use http://github.com/cgrand/enlive/tree/right instead.
-</div>
 
 h2. Syntax
 
