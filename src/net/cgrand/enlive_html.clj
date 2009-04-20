@@ -148,6 +148,10 @@
    (when (seq (remove hopeless? states))
      [(fn [loc] (apply intersection (map #(step % loc) states)))])]) 
 
+(defn complement-state 
+ [[x fs]]
+  [(not x) (map (partial comp complement-state) fs)])
+
 (defn chain 
   ([s] s)
   ([[x1 fns1] s2]
