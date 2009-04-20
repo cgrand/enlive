@@ -145,7 +145,7 @@
  "Returns a state machine which succeeds when all specified state machines succeed." 
  [& states]
   [(every? accept? states)
-   (when-let [states (seq (remove hopeless? states))] 
+   (when (seq (remove hopeless? states))
      [(fn [loc] (apply intersection (map #(step % loc) states)))])]) 
 
 (defn chain 
