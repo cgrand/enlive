@@ -182,11 +182,12 @@
 
 (defn- compile-keyword [kw]
   (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
-        tag-pred (if (#{"" "*"} tag-name) [] [`(tag= ~(keyword tag-name))])
+        tag-pred (when-not (#{"" "*"} tag-name) [`(tag= ~(keyword tag-name))])
         ids-pred (for [s etc :when (= \# (first s))] `(id= ~(subs s 1)))
         classes (set (for [s etc :when (= \. (first s))] (subs s 1)))
-        class-pred (when (seq classes) [`(has-class ~@classes)])] 
-    (emit-intersection (concat tag-pred ids-pred class-pred))))
+        class-pred (when (seq classes) [`(has-class ~@classes)])
+        all-preds (concat tag-pred ids-pred class-pred)] 
+    (emit-intersection (or (seq all-preds) [`any]))))
     
 (declare compile-step)
 
@@ -398,6 +399,8 @@
 ;; predicates
 (defn- test-step [expected state node]
   (= expected (boolean (accept? (step state (z/xml-zip node))))))
+
+(def any (pred (constantly true)))
 
 (with-test
   (defn tag= 
