@@ -3,15 +3,16 @@
 
 (deftemplate microblog-template
  "net/cgrand/enlive_html/example.html"  
- [title posts] 
-  [:title] (content title)
-  [:h1] (content title)
-  [:div.no-msg] #(when (empty? posts) %) 
-  [:div.post] #(for [{:keys [title body]} posts]
-                 (at %
-                   [:h2 :a] (content title)
-                   [:p] (content body)))
-  [[:a (attr? :href)]] (set-attr :title "it's a link"))
+ [title posts]
+ (xhtml-strict 
+   [:title] (content title)
+   [:h1] (content title)
+   [:div.no-msg] #(when (empty? posts) %) 
+   [:div.post] #(for [{:keys [title body]} posts]
+                  (at %
+                    [:h2 :a] (content title)
+                    [:p] (content body)))
+   [[:a (attr? :href)]] (set-attr :title "it's a link")))
               
 
 

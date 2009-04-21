@@ -97,13 +97,18 @@
           [" />"]
           ["></" name ">"])))))
 
-(defn emit [node]
+(defn- emit [node]
   (if (map? node)
     (emit-tag node)
     [(xml-str node)]))
-    
+
+(defn- emit-root [node]
+  (if-let [preamble (-> node meta ::preamble)]
+    (cons preamble (emit node))
+    (emit node)))
+  
 (defn emit* [node-or-nodes]
-  (if (map? node-or-nodes) (emit node-or-nodes) (mapcat emit node-or-nodes)))
+  (if (map? node-or-nodes) (emit-root node-or-nodes) (mapcat emit-root node-or-nodes)))
       
 ;; utilities
 
@@ -295,11 +300,15 @@
   `(select* ~nodes (selector ~selector)))
 
 ;; main macros
+
+(defmacro transformation
+ ([form] form)
+ ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
+
 (defmacro snippet* [nodes args & forms]
-  (let [transform (if (next forms) `(fn [node#] (at node# ~@forms)) (first forms))]
-    `(let [nodes# ~nodes]
-       (fn ~args
-         (flatmap ~transform nodes#)))))
+  `(let [nodes# ~nodes]
+     (fn ~args
+       (flatmap (transformation ~@forms) nodes#))))
     
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
@@ -409,16 +418,19 @@
                  (assoc attrs :class (apply str (interpose \space classes))))]
      (assoc % :attrs attrs)))
 
-(comment deftemplate-macro xhtml-strict [xml & forms]
-  `(escaped (list
-     "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n" 
-     (apply-template-macro ~(assoc-in xml [:attrs :xmlns] "http://www.w3.org/1999/xhtml") (at ~@forms))))) 
-
 (defn do->
  "Chains (composes) several transformations. Applies functions from left to right." 
  [& fns]
   #(reduce (fn [nodes f] (flatmap f nodes)) [%] fns))
 
+(defn xhtml-strict* [node]
+  (-> node
+    (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
+    (vary-meta assoc ::preamble 
+      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n")))  
+
+(defmacro xhtml-strict [& forms]
+  `(do-> (transformation ~@forms) xhtml-strict*)) 
 
 ;; predicates utils
 (defn pred 
