@@ -583,10 +583,18 @@
     [[:dt (nth-child -1 3)]] "<dl><dt class=foo>1<dt class=foo>2<dt class=foo>3<dt>4<dt>5" 
     [[:dt (nth-child 3 -1)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt class=foo>5"))
       
-(defn nth-last-child
- "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
- ([b] (nth-last-child 0 b))
- ([a b] (loc-pred (nth? z/rights a b))))
+(with-test      
+  (defn nth-last-child
+   "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
+   ([b] (nth-last-child 0 b))
+   ([a b] (loc-pred (nth? z/rights a b))))
+
+  (are (same? _2 (at (src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
+    [[:dt (nth-last-child 2)]] "<dl><dt>1<dt>2<dt>3<dt class=foo>4<dt>5" 
+    [[:dt (nth-last-child 2 0)]] "<dl><dt>1<dt class=foo>2<dt>3<dt class=foo>4<dt>5" 
+    [[:dt (nth-last-child 3 1)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt class=foo>5" 
+    [[:dt (nth-last-child -1 3)]] "<dl><dt>1<dt>2<dt class=foo>3<dt class=foo>4<dt class=foo>5" 
+    [[:dt (nth-last-child 3 -1)]] "<dl><dt class=foo>1<dt>2<dt>3<dt class=foo>4<dt>5"))
 
 (defn- filter-of-type [f]
   (fn [loc]
@@ -594,15 +602,31 @@
           pred #(= (:tag %) tag)]
       (filter pred (f loc)))))
 
-(defn nth-of-type
- "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
- ([b] (nth-of-type 0 b))
- ([a b] (loc-pred (nth? (filter-of-type z/lefts) a b))))
-
-(defn nth-last-of-type
- "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
- ([b] (nth-last-of-type 0 b))
- ([a b] (loc-pred (nth? (filter-of-type z/rights) a b))))
+(with-test
+  (defn nth-of-type
+   "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
+   ([b] (nth-of-type 0 b))
+   ([a b] (loc-pred (nth? (filter-of-type z/lefts) a b))))
+   
+  (are (same? _2 (at (src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
+    [[:dt (nth-of-type 2)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt>5" 
+    [[:dt (nth-of-type 2 0)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
+    [[:dt (nth-of-type 3 1)]] "<dl><dt class=foo>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
+    [[:dt (nth-of-type -1 3)]] "<dl><dt class=foo>1<dd>def #1<dt class=foo>2<dt class=foo>3<dd>def #3<dt>4<dt>5" 
+    [[:dt (nth-of-type 3 -1)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt class=foo>5"))
+   
+(with-test
+  (defn nth-last-of-type
+   "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
+   ([b] (nth-last-of-type 0 b))
+   ([a b] (loc-pred (nth? (filter-of-type z/rights) a b))))
+  
+  (are (same? _2 (at (src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
+    [[:dt (nth-last-of-type 2)]] "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
+    [[:dt (nth-last-of-type 2 0)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
+    [[:dt (nth-last-of-type 3 1)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt class=foo>5" 
+    [[:dt (nth-last-of-type -1 3)]] "<dl><dt>1<dd>def #1<dt>2<dt class=foo>3<dd>def #3<dt class=foo>4<dt class=foo>5" 
+    [[:dt (nth-last-of-type 3 -1)]] "<dl><dt class=foo>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5"))
 
 (def first-child (nth-child 1))      
       
