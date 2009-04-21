@@ -377,6 +377,13 @@
   #(let [content (-> (apply str "<bogon>" values) java.io.StringReader. html-resource first :content)]
      (assoc % :content content))) 
 
+(defn wrap 
+ ([tag] (wrap tag nil))
+ ([tag attrs]
+   #(array-map :tag tag :attrs attrs :content [%])))
+
+(def unwrap :content)
+
 (defn set-attr
  "Assocs attributes on the selected node."
  [& kvs]
