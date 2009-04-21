@@ -52,6 +52,8 @@ Rules are applied top-down: the first rule transforms the whole tree and the res
 
 h2. Selectors
 
+Enlive enforces (in @select*@ and @transform-loc@) that selectors can only match elements.   
+
 h3. Syntax
 
 A selector is either a vector or a set of selectors (denoting grouping).
