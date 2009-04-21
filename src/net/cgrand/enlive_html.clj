@@ -622,8 +622,11 @@
 
 (def even (nth-child 2 0))
 
+(defn- select? [nodes state]
+  (boolean (seq (select* nodes state))))
+
 (defn has* [state]
-  (pred #(boolean (seq (select* [%] state)))))
+  (pred #(select? [%] state)))
 
 (with-test
   (defmacro has
@@ -634,7 +637,6 @@
   (is-same "<div><p>XXX<p class='ok'><a>link</a><p>YYY" 
     (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
       [[:p (has [:a])]] (add-class "ok"))))
-
 
 (with-test
   (defmacro but
@@ -650,5 +652,62 @@
     (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
       [[:p (but (has [:a]))]] (add-class "ok"))))
 
+(defn left* [state]
+ (loc-pred 
+   #(when-let [sibling (first (filter map? (reverse (z/lefts %))))]
+      (select? [sibling] state))))
 
-   
+(with-test
+  (defmacro left 
+   [selector-step]
+    `(left* (selector-step ~selector-step)))
+
+  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+    [[:h3 (left :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
+    [[:h3 (left :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
+    [[:h3 (left :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX"))
+
+(defn lefts* [state]
+ (loc-pred 
+   #(select? (filter map? (z/lefts %)) state)))
+  
+(with-test
+  (defmacro lefts
+   [selector-step]
+    `(lefts* (selector-step ~selector-step)))
+  
+  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+    [[:h3 (lefts :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
+    [[:h3 (lefts :h1)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
+    [[:h3 (lefts :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
+      
+
+(defn right* [state]
+ (loc-pred 
+   #(when-let [sibling (first (filter map? (z/rights %)))]
+      (select? [sibling] state))))
+
+(with-test
+  (defmacro right 
+   [selector-step]
+    `(right* (selector-step ~selector-step)))
+
+  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+    [[:h2 (right :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
+    [[:h2 (right :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
+    [[:h2 (right :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
+
+(defn rights* [state]
+ (loc-pred 
+   #(select? (filter map? (z/rights %)) state)))
+  
+(with-test
+  (defmacro rights 
+   [selector-step]
+    `(rights* (selector-step ~selector-step)))
+  
+  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+    [[:h2 (rights :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
+    [[:h2 (rights :p)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
+    [[:h2 (rights :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
+  

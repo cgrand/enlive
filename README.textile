@@ -82,6 +82,12 @@ Each element in the vector is either a combinator, a "simple selector":http://ww
   empty                            *:empty
   odd                              *:nth-child(odd)
   even                             *:nth-child(even)
+  (but :a)                         :not(a)
+  (has [:a])                       no equivalent
+  [:p (left :h1)]                  h1 + p  
+  [:p (lefts :h1)]                 h1 ~ p
+  [:p (right :h1)]                 no equivalent  
+  [:p (rights :h1)]                no equivalent
 </pre>
 
 Some examples:
