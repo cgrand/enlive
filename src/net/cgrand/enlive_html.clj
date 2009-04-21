@@ -216,7 +216,7 @@
 (defn- compile-intersection [s]
   (emit-intersection (map compile-step s)))      
 
-(defn- compile-step [s]
+(defn compile-step [s]
   (cond
     (keyword? s) (compile-keyword s)    
     (set? s) (compile-union s)    
@@ -266,6 +266,11 @@
  "Turns the selector into clojure code." 
  [selector]
   (compile-selector selector))
+
+(defmacro selector-step
+ "Turns the selector step into clojure code." 
+ [selector-step]
+  (compile-step selector-step))
 
 (defmacro at [node & rules]
   `(at* [~node] ~@(map #(%1 %2) (cycle [#(list `selector %) identity]) rules)))
