@@ -261,7 +261,8 @@
     (z/node loc)))
       
 (defn transform [nodes [state transformation]]
-  (flatmap #(transform-loc (z/xml-zip %) state transformation) nodes))
+  (when transformation
+    (flatmap #(transform-loc (z/xml-zip %) state transformation) nodes)))
 
 (defn at* [nodes & rules]
   (reduce transform nodes (partition 2 rules)))
