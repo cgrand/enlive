@@ -135,31 +135,50 @@
  [state loc]
   (let [states (map #(% loc) (second state))]
     [(some accept? states) (mapcat second states)]))    
+
+(with-test 
+  (defn union 
+   "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
+   [& states]
+    [(some accept? states) (mapcat second states)])
+       
+  (is (accept? (step (union [false nil] [false [(constantly [true nil])]]) :a)))
+  (is (not (accept? (step (union [false nil] [false [(constantly [false nil])]]) :a))))
+  (is (accept? (step (union [false [(constantly [false nil])]] [false [(constantly [true nil])]]) :a)))
+  (is (accept? (step (union [false [(constantly [true nil])]] [false [(constantly [true nil])]]) :a)))) 
   
-(defn union 
- "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
- [& states]
-  [(some accept? states) (mapcat second states)])
-  
-(defn intersection
- "Returns a state machine which succeeds when all specified state machines succeed." 
- [& states]
-  [(every? accept? states)
-   (when (seq (remove hopeless? states))
-     [(fn [loc] (apply intersection (map #(step % loc) states)))])]) 
+(with-test
+  (defn intersection
+   "Returns a state machine which succeeds when all specified state machines succeed." 
+   [& states]
+    [(every? accept? states)
+     (when (seq (remove hopeless? states))
+       [(fn [loc] (apply intersection (map #(step % loc) states)))])])
+       
+  (is (not (accept? (step (intersection [false nil] [false [(constantly [true nil])]]) :a))))
+  (is (not (accept? (step (intersection [false [(constantly [false nil])]] [false [(constantly [true nil])]]) :a))))
+  (is (accept? (step (intersection [false [(constantly [true nil])]] [false [(constantly [true nil])]]) :a)))) 
 
 (defn complement 
  [[x fs]]
   [(not x) (map (partial comp complement) fs)])
 
-(defn chain 
-  ([s] s)
-  ([[x1 fns1] s2]
-    (let [chained-fns1 (map #(fn [loc] (chain (% loc) s2)) fns1)]
-      (if x1
-        [(accept? s2) (concat (second s2) chained-fns1)]
-        [false chained-fns1])))
-  ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
+(with-test
+  (defn chain 
+    ([s] s)
+    ([[x1 fns1] s2]
+      (let [chained-fns1 (map #(fn [loc] (chain (% loc) s2)) fns1)]
+        (if x1
+          [(accept? s2) (concat (second s2) chained-fns1)]
+          [false chained-fns1])))
+    ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
+    
+  (are (= _1 (boolean (accept? (reduce step (chain [false [#(vector (= :a %1) nil)]] [false [#(vector (= :b %1) nil)]])  _2))))
+    true [:a :b]
+    false [:a :c]
+    false [:c :b]
+    false [:a :a]
+    false [:b :b]))
 
 (def descendants-or-self
   [true (lazy-seq [(constantly descendants-or-self)])])
