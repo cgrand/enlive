@@ -215,9 +215,10 @@
       (emit-chain [`descendants-or-self next-chain])))) 
 
 (defn compile-selector [s]
-  (if (set? s)
-    (emit-union (map compile-selector s)) 
-    (compile-chain s)))
+  (cond
+    (set? s) (emit-union (map compile-selector s))
+    (vector? s) (compile-chain s)
+    :else s))
 
 ;; core 
   
