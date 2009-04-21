@@ -16,7 +16,7 @@ Transformations (the right-hand parts of rules) are now plain old closures. Thes
 
 Rules are applied top-down: the first rule transforms the whole tree and the resulting tree is passed to the next rules.
 
-Nodes are transformed deep-first, that is: if a selector selects several nodes, descendants are transformed first. Hence, when the transformation is applied to an ancestor, you can "see" the transformed descendants.
+Nodes are transformed deep-first, that is: if a selector selects several nodes, descendants are transformed first. Hence, when the transformation is applied to an ancestor, you can "see" the transformed descendants (but you can not see your transformed siblings).
 
 <pre>
    /B                                                                             /(T B)
@@ -31,6 +31,24 @@ A snippet is a function that returns a seq of nodes, it can be used as a buildin
 A template is a function that returns a seq of string -- basically it's a snippet whose output is serialized. Templates return a seq of strings to avoid building the whole string.
 
 Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, a Reader, an InputStream, an URI, an URL, an element or a seq of nodes).
+
+h2. The @at@ form
+
+The @at@ form is the most important form in Enlive. There are implicit @at@ forms in @snippet@ and @template@.  
+
+<pre>
+  (at a-node
+    [:a :selector] a-transformation
+    [:another :selector] another-transformation
+    ...)
+</pre>
+
+The right-hand value of a rule can be nil. It's the idiomatic way to remove an element.
+
+Transformations are closures which take one arg (the selected node) and return nil, another node or an arbitrarily nested collection of nodes.
+
+Rules are applied top-down: the first rule transforms the whole tree and the resulting tree is passed to the next rules.
+
 
 h2. Selectors
 
