@@ -288,7 +288,7 @@
 (defn select* [nodes state]
   (let [select1 
          (fn select1 [loc previous-state] 
-           (let [state (step previous-state loc)]
+           (when-let [state (and (z/branch? loc) (step previous-state loc))]
              (if (accept? state)
                (list (z/node loc))
                (mapcat #(select1 % state) (children-locs loc)))))]
@@ -437,13 +437,13 @@
  "Turns a predicate function on elements into a predicate-step usable in selectors."
  [f]
   [false [(fn [loc]
-            [(and (z/branch? loc) (f (z/node loc))) nil])]])
+            [(f (z/node loc)) nil])]])
 
 (defn loc-pred 
  "Turns a predicate function on locs (see clojure.core.zip) into a predicate-step usable in selectors."
  [f]
   [false [(fn [loc]
-            [(and (z/branch? loc) (f loc)) nil])]])
+            [(f loc) nil])]])
 
 ;; predicates
 (defn- test-step [expected state node]
