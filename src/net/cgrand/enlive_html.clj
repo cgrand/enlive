@@ -9,7 +9,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html
-  (:refer-clojure :exclude [empty])
+  (:refer-clojure :exclude [empty complement])
   (:require [clojure.xml :as xml])
   (:require [clojure.zip :as z])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is are]]))
@@ -148,9 +148,9 @@
    (when (seq (remove hopeless? states))
      [(fn [loc] (apply intersection (map #(step % loc) states)))])]) 
 
-(defn complement-state 
+(defn complement 
  [[x fs]]
-  [(not x) (map (partial comp complement-state) fs)])
+  [(not x) (map (partial comp complement) fs)])
 
 (defn chain 
   ([s] s)
@@ -591,4 +591,5 @@
 (defmacro has [selector]
   `(has* (chain any (selector ~selector))))
   
-(def but complement-state) 
+(defmacro but [selector]
+  `(complement-state (selector ~selector))) 
