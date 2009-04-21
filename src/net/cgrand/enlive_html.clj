@@ -163,6 +163,10 @@
  [[x fs]]
   [(not x) (map (partial comp complement) fs)])
 
+(defn complement-next
+ [state]
+  [(accept? state) (second (complement state))]) 
+
 (with-test
   (defn chain 
     ([s] s)
@@ -613,8 +617,30 @@
 (defn has* [state]
   (pred #(boolean (seq (select* [%] state)))))
 
-(defmacro has [selector]
-  `(has* (chain any (selector ~selector))))
-  
-(defmacro but [selector]
-  `(complement-state (selector ~selector))) 
+(with-test
+  (defmacro has
+   "Selector predicate, matches elements which contain at least one element that matches the specified selector. See jQuery's :has" 
+   [selector]
+    `(has* (chain any (selector ~selector))))
+    
+  (is-same "<div><p>XXX<p class='ok'><a>link</a><p>YYY" 
+    (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
+      [[:p (has [:a])]] (add-class "ok"))))
+
+
+(with-test
+  (defmacro but
+   "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
+   [selector-step]
+    `(complement-next (selector-step ~selector-step)))
+    
+  (is-same "<div><p>XXX<p><a class='ok'>link</a><p>YYY" 
+    (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
+      [:div (but :p)] (add-class "ok")))
+      
+  (is-same "<div><p class='ok'>XXX<p><a>link</a><p class='ok'>YYY" 
+    (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
+      [[:p (but (has [:a]))]] (add-class "ok"))))
+
+
+   
