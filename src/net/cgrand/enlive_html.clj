@@ -272,10 +272,9 @@
         (transformation node)
         node))
     (z/node loc)))
-      
+
 (defn transform [nodes [state transformation]]
-  (when transformation
-    (flatmap #(transform-loc (z/xml-zip %) state transformation) nodes)))
+  (flatmap #(transform-loc (z/xml-zip %) state (or transformation (constantly nil))) nodes))
 
 (defn at* [nodes & rules]
   (reduce transform nodes (partition 2 rules)))
@@ -754,4 +753,7 @@
     [[:h2 (rights :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :p)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
-  
+
+;; tests that are easier to define once everything exists 
+(set-test transform
+  (is-same "<div>" (at (src "<div><span>") [:span] nil)))
