@@ -351,7 +351,7 @@
     (map? node)
       (-> node
         (assoc-in [:attrs :class] (attr-values node :class))
-        (update-in [:content] htmlize))
+        (update-in [:content] (comp htmlize seq)))
     (or (coll? node) (seq? node))
       (map htmlize node)
     :else node))
