@@ -322,6 +322,11 @@
  [source selector args & forms]
   `(snippet* (select (html-resource ~source) ~selector) ~args ~@forms))  
 
+(defmacro sniptest
+ "A handy macro for experimenting at the repl" 
+ [source-string & forms]
+  `(apply str (emit* ((snippet* (html-resource (java.io.StringReader. ~source-string)) [] ~@forms)))))
+
 (defmacro template 
  "A template returns a seq of string."
  ([source args & forms]
