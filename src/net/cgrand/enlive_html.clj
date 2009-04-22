@@ -676,22 +676,22 @@
 (defn has* [state]
   (pred #(select? [%] state)))
 
-(with-test
-  (defmacro has
-   "Selector predicate, matches elements which contain at least one element that matches the specified selector. See jQuery's :has" 
-   [selector]
-    `(has* (chain any (selector ~selector))))
-    
+(defmacro has
+ "Selector predicate, matches elements which contain at least one element that matches the specified selector. See jQuery's :has" 
+ [selector]
+  `(has* (chain any (selector ~selector))))
+
+(set-test has    
   (is-same "<div><p>XXX<p class='ok'><a>link</a><p>YYY" 
     (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
       [[:p (has [:a])]] (add-class "ok"))))
 
-(with-test
-  (defmacro but
-   "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
-   [selector-step]
-    `(complement-next (selector-step ~selector-step)))
-    
+(defmacro but
+ "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
+ [selector-step]
+  `(complement-next (selector-step ~selector-step)))
+
+(set-test but    
   (is-same "<div><p>XXX<p><a class='ok'>link</a><p>YYY" 
     (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
       [:div (but :p)] (add-class "ok")))
@@ -705,11 +705,11 @@
    #(when-let [sibling (first (filter map? (reverse (z/lefts %))))]
       (select? [sibling] state))))
 
-(with-test
-  (defmacro left 
-   [selector-step]
-    `(left* (selector-step ~selector-step)))
+(defmacro left 
+ [selector-step]
+  `(left* (selector-step ~selector-step)))
 
+(set-test left
   (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h3 (left :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
     [[:h3 (left :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
@@ -719,11 +719,11 @@
  (loc-pred 
    #(select? (filter map? (z/lefts %)) state)))
   
-(with-test
-  (defmacro lefts
-   [selector-step]
-    `(lefts* (selector-step ~selector-step)))
-  
+(defmacro lefts
+ [selector-step]
+  `(lefts* (selector-step ~selector-step)))
+
+(set-test lefts
   (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h3 (lefts :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
     [[:h3 (lefts :h1)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
@@ -735,11 +735,11 @@
    #(when-let [sibling (first (filter map? (z/rights %)))]
       (select? [sibling] state))))
 
-(with-test
-  (defmacro right 
-   [selector-step]
-    `(right* (selector-step ~selector-step)))
+(defmacro right 
+ [selector-step]
+  `(right* (selector-step ~selector-step)))
 
+(set-test right
   (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h2 (right :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (right :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
@@ -749,11 +749,11 @@
  (loc-pred 
    #(select? (filter map? (z/rights %)) state)))
   
-(with-test
-  (defmacro rights 
-   [selector-step]
-    `(rights* (selector-step ~selector-step)))
-  
+(defmacro rights 
+ [selector-step]
+  `(rights* (selector-step ~selector-step)))
+
+(set-test rights  
   (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h2 (rights :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :p)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
