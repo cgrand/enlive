@@ -1,14 +1,20 @@
 (ns net.cgrand.enlive-html.examples
-  (:use [net.cgrand.enlive-html :as html :only [deftemplate at]]))
-  
-(deftemplate microblog-template "net/cgrand/enlive_html/example.html" [title posts]
-  [:title] title
-  [:h1] title
-  [:div.no-msg] (when-not (seq posts) ~(html/show))
-  [:div.post] (for [{:keys [title body]} posts]
-           ~(at
-              [:h2] title
-              [:p] body)))
+  (:use [net.cgrand.enlive-html :as html :only [deftemplate at content set-attr attr?]]))
+
+(deftemplate microblog-template
+ "net/cgrand/enlive_html/example.html"  
+ [title posts]
+ (xhtml-strict 
+   [:title] (content title)
+   [:h1] (content title)
+   [:div.no-msg] #(when (empty? posts) %) 
+   [:div.post] #(for [{:keys [title body]} posts]
+                  (at %
+                    [:h2 :a] (content title)
+                    [:p] (content body)))
+   [[:a (attr? :href)]] (set-attr :title "it's a link")))
+              
+
 
 (comment
   (apply str (microblog-template "Hello user!" 
