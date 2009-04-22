@@ -208,14 +208,22 @@
 (defn- emit-chain [forms]
   (simplify-associative (cons `chain forms)))
 
-(defn- compile-keyword [kw]
-  (let [[tag-name & etc] (.split (name kw) "(?=[#.])")
-        tag-pred (when-not (#{"" "*"} tag-name) [`(tag= ~(keyword tag-name))])
-        ids-pred (for [s etc :when (= \# (first s))] `(id= ~(subs s 1)))
-        classes (set (for [s etc :when (= \. (first s))] (subs s 1)))
-        class-pred (when (seq classes) [`(has-class ~@classes)])
-        all-preds (concat tag-pred ids-pred class-pred)] 
-    (emit-intersection (or (seq all-preds) [`any]))))
+(with-test
+  (defn- compile-keyword [kw]
+    (let [[[first-letter :as tag-name] :as segments] (.split (name kw) "(?=[#.])")
+          tag-pred (when-not (contains? #{nil \* \# \.} first-letter) [`(tag= ~(keyword tag-name))])
+          ids-pred (for [s segments :when (= \# (first s))] `(id= ~(subs s 1)))
+          classes (set (for [s segments :when (= \. (first s))] (subs s 1)))
+          class-pred (when (seq classes) [`(has-class ~@classes)])
+          all-preds (concat tag-pred ids-pred class-pred)] 
+      (emit-intersection (or (seq all-preds) [`any]))))
+
+  (are (= _2 (compile-keyword _1))
+    :foo `(tag= :foo)
+    :* `any
+    :#id `(id= "id")
+    :.class1 `(has-class "class1")
+    :foo#bar.baz1.baz2 `(intersection (tag= :foo) (id= "bar") (has-class "baz1" "baz2"))))
     
 (declare compile-step)
 
