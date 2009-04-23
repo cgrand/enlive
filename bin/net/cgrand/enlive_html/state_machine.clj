@@ -9,10 +9,10 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html.state-machine
+  "state machine stuff for enlive-html"
   (:refer-clojure :exclude [complement])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is are]]))
 
-;; state machine stuff
 ;; a state is a pair consisting of a boolean (acceptance) and a seq of functions (functions from loc to state)
 
 (def accept? first)

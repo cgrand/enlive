@@ -9,13 +9,12 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html
+  "enlive-html is a selector-based templating engine."
   (:require [clojure.xml :as xml])
   (:require [clojure.zip :as z])
   (:require [net.cgrand.enlive-html.state-machine :as sm])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is are]]))
 
-;; enlive-html is a selector-based templating engine
-;;
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 
 ;; HTML I/O stuff
