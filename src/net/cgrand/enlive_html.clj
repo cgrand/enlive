@@ -96,9 +96,12 @@
           [" />"]
           ["></" name ">"])))))
 
+(defn- annotations [x]
+  (-> x meta ::annotations))
+
 (defn- emit [node]
-  (if (map? node)
-    (emit-tag node)
+  (if (map? node) 
+    ((:emit (annotations node) emit-tag) node)
     [(xml-str node)]))
 
 (defn- emit-root [node]
@@ -108,6 +111,32 @@
   
 (defn emit* [node-or-nodes]
   (if (map? node-or-nodes) (emit-root node-or-nodes) (mapcat emit-root node-or-nodes)))
+
+(defn- emitter [{:keys [tag content attrs] :as node}]
+  (let [name (name tag)
+        attrs-str (apply str (emit-attrs attrs))
+        open (str "<" name attrs-str ">")
+        close (str "</" name ">")
+        empty [(if (*self-closing-tags* tag)
+                 (str "<" name attrs-str " />")
+                 (str open close))]
+        open [open]
+        close [close]
+        full [(apply str (emit-tag node))]]
+    (fn [elt]
+      (cond
+        (= node elt) full
+        (and (= tag (:tag elt)) (= attrs (:attrs elt)))
+          (if-let [content (seq (:content elt))]
+            (concat open (mapcat emit content) close)
+            empty)
+        :else (emit-tag elt)))))
+
+(defn annotate [node]
+  (if (map? node)
+    (let [node (update-in node [:content] #(map annotate %))] 
+      (vary-meta node assoc ::annotations {:emit (emitter node)}))
+    node))
       
 ;; utilities
 
@@ -246,7 +275,7 @@
  ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
 
 (defmacro snippet* [nodes args & forms]
-  `(let [nodes# ~nodes]
+  `(let [nodes# (map annotate ~nodes)]
      (fn ~args
        (flatmap (transformation ~@forms) nodes#))))
     
