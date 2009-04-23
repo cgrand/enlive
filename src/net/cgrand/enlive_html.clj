@@ -355,7 +355,7 @@
   #(assoc % :content (flatten values)))
 
 (defn html-content
- "Replaces the content of the node. Values are string of html."
+ "Replaces the content of the node. Values are strings containing html code."
  [& values]
   #(let [content (-> (apply str "<bogon>" values) java.io.StringReader. html-resource first :content)]
      (assoc % :content content))) 

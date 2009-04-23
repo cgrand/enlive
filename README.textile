@@ -160,3 +160,25 @@ The relation between @snippet@ and @snippet*@ is more complex: @snippet*@ doesn'
     (fn [args] 
       (flatmap #(at % selector1 transformation1)) nodes__4595__auto__)))
 </pre>
+
+
+h2. Transformations
+
+A transformation is a function that returns either a node or collection of node.
+
+Enlive defines several helper functions:
+<pre>
+  content            (content "xyz" a-node "abc")             
+  html-content       (html-content "<blink>please no</blink>")
+  wrap               (wrap :div) or (wrap :div {:class "foo"}) 
+  unwrap             unwrap
+  set-attr           (set-attr :attr1 "val1" :attr2 "val2")
+  remove-attr        (remove-attr :attr1 :attr2) 
+  add-class          (add-class "foo" "bar")
+  remove-class       (remove-class "foo" "bar")
+  do->               (do-> transformation1 transformation2) 
+  clone-for          (clone-for [item items] transformation)
+                     or (clone-for [item items] 
+                          selector1 transformation1
+                          selector2 transformation2)
+</pre>
