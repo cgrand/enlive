@@ -9,9 +9,9 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html
-  (:refer-clojure :exclude [empty complement])
   (:require [clojure.xml :as xml])
   (:require [clojure.zip :as z])
+  (:require [net.cgrand.enlive-html.state-machine :as sm])
   (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is are]]))
 
 ;; enlive-html is a selector-based templating engine
@@ -126,73 +126,6 @@
  [node attr]
   (disj (set (-> node :attrs (attr "") (.split "\\s+"))) ""))
 
-;; state machine stuff
-;; a state is a pair consisting of a boolean (acceptance) and a seq of functions (functions from loc to state)
-
-(def accept? first)
-
-(defn hopeless?
- "Returns true if the state machine cannot succeed. (It's not a necessary condition.)" 
- [state] (empty? (second state)))
-
-(defn step
- "Returns the next state."  
- [state loc]
-  (let [states (map #(% loc) (second state))]
-    [(some accept? states) (mapcat second states)]))    
-
-(with-test 
-  (defn union 
-   "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
-   [& states]
-    [(some accept? states) (mapcat second states)])
-       
-  (is (accept? (step (union [false nil] [false [(constantly [true nil])]]) :a)))
-  (is (not (accept? (step (union [false nil] [false [(constantly [false nil])]]) :a))))
-  (is (accept? (step (union [false [(constantly [false nil])]] [false [(constantly [true nil])]]) :a)))
-  (is (accept? (step (union [false [(constantly [true nil])]] [false [(constantly [true nil])]]) :a)))) 
-  
-(with-test
-  (defn intersection
-   "Returns a state machine which succeeds when all specified state machines succeed." 
-   [& states]
-    [(every? accept? states)
-     (when (seq (remove hopeless? states))
-       [(fn [loc] (apply intersection (map #(step % loc) states)))])])
-       
-  (is (not (accept? (step (intersection [false nil] [false [(constantly [true nil])]]) :a))))
-  (is (not (accept? (step (intersection [false [(constantly [false nil])]] [false [(constantly [true nil])]]) :a))))
-  (is (accept? (step (intersection [false [(constantly [true nil])]] [false [(constantly [true nil])]]) :a)))) 
-
-(defn complement 
- [[x fs]]
-  [(not x) (map (partial comp complement) fs)])
-
-(defn complement-next
- [state]
-  [(accept? state) (second (complement state))]) 
-
-(with-test
-  (defn chain 
-    ([s] s)
-    ([[x1 fns1] s2]
-      (let [chained-fns1 (map #(fn [loc] (chain (% loc) s2)) fns1)]
-        (if x1
-          [(accept? s2) (concat (second s2) chained-fns1)]
-          [false chained-fns1])))
-    ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
-    
-  (are (= _1 (boolean (accept? (reduce step (chain [false [#(vector (= :a %1) nil)]] [false [#(vector (= :b %1) nil)]])  _2))))
-    true [:a :b]
-    false [:a :c]
-    false [:c :b]
-    false [:a :a]
-    false [:b :b]))
-
-(def descendants-or-self
-  [true (lazy-seq [(constantly descendants-or-self)])])
-
-
 ;; selector syntax
 (defn- simplify-associative [[op & forms]]
   (if (next forms)
@@ -200,13 +133,13 @@
     (first forms)))
 
 (defn- emit-union [forms]
-  (simplify-associative (cons `union forms)))
+  (simplify-associative (cons `sm/union forms)))
 
 (defn- emit-intersection [forms]
-  (simplify-associative (cons `intersection forms)))
+  (simplify-associative (cons `sm/intersection forms)))
 
 (defn- emit-chain [forms]
-  (simplify-associative (cons `chain forms)))
+  (simplify-associative (cons `sm/chain forms)))
 
 (with-test
   (defn- compile-keyword [kw]
@@ -223,7 +156,7 @@
     :* `any
     :#id `(id= "id")
     :.class1 `(has-class "class1")
-    :foo#bar.baz1.baz2 `(intersection (tag= :foo) (id= "bar") (has-class "baz1" "baz2"))))
+    :foo#bar.baz1.baz2 `(sm/intersection (tag= :foo) (id= "bar") (has-class "baz1" "baz2"))))
     
 (declare compile-step)
 
@@ -248,7 +181,7 @@
                        (compile-step step)))]
     (if (seq child-ops)
       next-chain      
-      (emit-chain [`descendants-or-self next-chain])))) 
+      (emit-chain [`sm/descendants-or-self next-chain])))) 
 
 (defn compile-selector [s]
   (cond
@@ -263,12 +196,12 @@
 
 (defn- transform-loc [loc previous-state transformation]
   (if (z/branch? loc)
-    (let [state (step previous-state loc)
+    (let [state (sm/step previous-state loc)
           children (flatmap #(transform-loc % state transformation) (children-locs loc))
           node (if (= children (z/children loc)) 
                  (z/node loc) 
                  (z/make-node loc (z/node loc) children))]
-      (if (accept? state)
+      (if (sm/accept? state)
         (transformation node)
         node))
     (z/node loc)))
@@ -295,8 +228,8 @@
 (defn select* [nodes state]
   (let [select1 
          (fn select1 [loc previous-state] 
-           (when-let [state (and (z/branch? loc) (step previous-state loc))]
-             (if (accept? state)
+           (when-let [state (and (z/branch? loc) (sm/step previous-state loc))]
+             (if (sm/accept? state)
                (list (z/node loc))
                (mapcat #(select1 % state) (children-locs loc)))))]
     (mapcat #(select1 (z/xml-zip %) state) nodes)))
@@ -441,9 +374,6 @@
   `(fn [node#]
      (for ~comprehension ((transformation ~@forms) node#))))
      
-(set-test clone
-  (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone [x ["one" "two"]] (content x))))) 
-
 (defn xhtml-strict* [node]
   (-> node
     (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
@@ -457,18 +387,11 @@
 (defn pred 
  "Turns a predicate function on elements into a predicate-step usable in selectors."
  [f]
-  [false [(fn [loc]
-            [(f (z/node loc)) nil])]])
-
-(defn loc-pred 
- "Turns a predicate function on locs (see clojure.core.zip) into a predicate-step usable in selectors."
- [f]
-  [false [(fn [loc]
-            [(f loc) nil])]])
+  (sm/pred #(f (z/node %))))
 
 ;; predicates
 (defn- test-step [expected state node]
-  (= expected (boolean (accept? (step state (z/xml-zip node))))))
+  (= expected (boolean (sm/accept? (sm/step state (z/xml-zip node))))))
 
 (def any (pred (constantly true)))
 
@@ -593,7 +516,7 @@
   (multi-attr-pred is-first-segment?))
 
 (def root 
-  (loc-pred #(-> % z/up nil?)))
+  (sm/pred #(-> % z/up nil?)))
 
 (defn- nth? 
  [f a b]
@@ -607,7 +530,7 @@
   (defn nth-child
    "Selector step, tests if the node has an+b-1 siblings on its left. See CSS :nth-child."
    ([b] (nth-child 0 b))
-   ([a b] (loc-pred (nth? z/lefts a b))))
+   ([a b] (sm/pred (nth? z/lefts a b))))
 
   (are (same? _2 (at (src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-child 2)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt>5" 
@@ -620,7 +543,7 @@
   (defn nth-last-child
    "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
    ([b] (nth-last-child 0 b))
-   ([a b] (loc-pred (nth? z/rights a b))))
+   ([a b] (sm/pred (nth? z/rights a b))))
 
   (are (same? _2 (at (src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-last-child 2)]] "<dl><dt>1<dt>2<dt>3<dt class=foo>4<dt>5" 
@@ -639,7 +562,7 @@
   (defn nth-of-type
    "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
    ([b] (nth-of-type 0 b))
-   ([a b] (loc-pred (nth? (filter-of-type z/lefts) a b))))
+   ([a b] (sm/pred (nth? (filter-of-type z/lefts) a b))))
    
   (are (same? _2 (at (src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-of-type 2)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt>5" 
@@ -652,7 +575,7 @@
   (defn nth-last-of-type
    "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
    ([b] (nth-last-of-type 0 b))
-   ([a b] (loc-pred (nth? (filter-of-type z/rights) a b))))
+   ([a b] (sm/pred (nth? (filter-of-type z/rights) a b))))
   
   (are (same? _2 (at (src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-last-of-type 2)]] "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
@@ -669,11 +592,11 @@
       
 (def last-of-type (nth-last-of-type 1))      
 
-(def only-child (intersection first-child last-child))  
+(def only-child (sm/intersection first-child last-child))  
 
-(def only-of-type (intersection first-of-type last-of-type))
+(def only-of-type (sm/intersection first-of-type last-of-type))
 
-(def empty (pred #(empty? (remove empty? (:content %)))))
+(def void (pred #(empty? (remove empty? (:content %)))))
 
 (def odd (nth-child 2 1))
 
@@ -688,7 +611,7 @@
 (defmacro has
  "Selector predicate, matches elements which contain at least one element that matches the specified selector. See jQuery's :has" 
  [selector]
-  `(has* (chain any (selector ~selector))))
+  `(has* (sm/chain any (selector ~selector))))
 
 (set-test has    
   (is-same "<div><p>XXX<p class='ok'><a>link</a><p>YYY" 
@@ -698,7 +621,7 @@
 (defmacro but
  "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
  [selector-step]
-  `(complement-next (selector-step ~selector-step)))
+  `(sm/complement-next (selector-step ~selector-step)))
 
 (set-test but    
   (is-same "<div><p>XXX<p><a class='ok'>link</a><p>YYY" 
@@ -710,7 +633,7 @@
       [[:p (but (has [:a]))]] (add-class "ok"))))
 
 (defn left* [state]
- (loc-pred 
+ (sm/pred 
    #(when-let [sibling (first (filter map? (reverse (z/lefts %))))]
       (select? [sibling] state))))
 
@@ -725,7 +648,7 @@
     [[:h3 (left :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX"))
 
 (defn lefts* [state]
- (loc-pred 
+ (sm/pred 
    #(select? (filter map? (z/lefts %)) state)))
   
 (defmacro lefts
@@ -740,7 +663,7 @@
       
 
 (defn right* [state]
- (loc-pred 
+ (sm/pred 
    #(when-let [sibling (first (filter map? (z/rights %)))]
       (select? [sibling] state))))
 
@@ -755,7 +678,7 @@
     [[:h2 (right :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
 
 (defn rights* [state]
- (loc-pred 
+ (sm/pred 
    #(select? (filter map? (z/rights %)) state)))
   
 (defmacro rights 
@@ -771,3 +694,8 @@
 ;; tests that are easier to define once everything exists 
 (set-test transform
   (is-same "<div>" (at (src "<div><span>") [:span] nil)))
+  
+(set-test clone
+  (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone [x ["one" "two"]] (content x))))) 
+
+  
