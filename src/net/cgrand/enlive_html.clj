@@ -401,6 +401,35 @@
  [comprehension & forms]
   `(fn [node#]
      (for ~comprehension ((transformation ~@forms) node#))))
+
+(defn append
+ [& values]
+  #(assoc % :content (concat (:content %) (flatten values)))) 
+
+(defn prepend
+ [& values]
+  #(assoc % :content (concat (flatten values) (:content %)))) 
+
+(defn after
+ [& values]
+  #(cons % (flatten values)))
+
+(defn before
+ [& values]
+  #(concat (flatten values) [%]))
+
+(defn substitute
+ [& values]
+ (constantly (flatten values)))
+
+(defmacro move 
+ ([src-selector dest-selector] `(move ~src-selector ~dest-selector substitute))
+ ([src-selector dest-selector combiner]
+  `(fn [node#]
+     (let [nodes# (select [node#] ~src-selector)]
+       (at node#
+         ~src-selector nil
+         ~dest-selector (apply ~combiner nodes#)))))) 
      
 (defn xhtml-strict* [node]
   (-> node
@@ -726,4 +755,11 @@
 (set-test clone-for
   (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone-for [x ["one" "two"]] (content x))))) 
 
-  
+(set-test move
+  (are (same? _2 ((move [:span] [:div] _1) (src "<span>1</span><div id=target>here</div><span>2</span>")))
+  substitute "<span>1</span><span>2</span>"
+  content "<div id=target><span>1</span><span>2</span></div>"
+  after "<div id=target>here</div><span>1</span><span>2</span>"
+  before "<span>1</span><span>2</span><div id=target>here</div>"
+  append "<div id=target>here<span>1</span><span>2</span></div>"
+  prepend "<div id=target><span>1</span><span>2</span>here</div>"))
