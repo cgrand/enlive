@@ -4,11 +4,13 @@ Enlive is a selector-based (à la CSS) templating library for Clojure.
 
 An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
 
+
 h2. What's wrong with the old Enlive?
 
 Premature optimization. It drove me to write a convoluted and limited system. The new Enlive is more regular, more powerful and easier to reason about.
 
 I made it work (old Enlive), I'm making it right (new Enlive) and I'll make it faster.   
+
 
 h2. What's new in Enlive?
 
@@ -24,6 +26,7 @@ Nodes are transformed deep-first, that is: if a selector selects several nodes, 
    \C                                                                             \C
 </pre>
 
+
 h2. Templates and snippets
 
 A snippet is a function that returns a seq of nodes, it can be used as a building block for more complex templates.
@@ -31,6 +34,7 @@ A snippet is a function that returns a seq of nodes, it can be used as a buildin
 A template is a function that returns a seq of string -- basically it's a snippet whose output is serialized. Templates return a seq of strings to avoid building the whole string.
 
 Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, a Reader, an InputStream, an URI, an URL, an element or a seq of nodes).
+
 
 h2. The @at@ form
 
@@ -99,7 +103,7 @@ Each element in the vector is either a combinator, a "simple selector":http://ww
   last-of-type                     *:last-of-type
   only-child                       *:only-child
   only-of-type                     *:only-of-type
-  empty                            *:empty
+  void                             *:empty
   odd                              *:nth-child(odd)
   even                             *:nth-child(even)
   (but :a)                         :not(a)
