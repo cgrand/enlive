@@ -397,7 +397,7 @@
  [& fns]
   #(reduce (fn [nodes f] (flatmap f nodes)) [%] fns))
 
-(defmacro clone
+(defmacro clone-for
  [comprehension & forms]
   `(fn [node#]
      (for ~comprehension ((transformation ~@forms) node#))))
@@ -723,7 +723,7 @@
 (set-test transform
   (is-same "<div>" (at (src "<div><span>") [:span] nil)))
   
-(set-test clone
-  (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone [x ["one" "two"]] (content x))))) 
+(set-test clone-for
+  (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone-for [x ["one" "two"]] (content x))))) 
 
   
