@@ -435,6 +435,14 @@
  [& fns]
   #(reduce (fn [nodes f] (flatmap f nodes)) [%] fns))
 
+(defmacro clone
+ [comprehension & forms]
+  `(fn [node#]
+     (for ~comprehension ((transformation ~@forms) node#))))
+     
+(set-test clone
+  (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone [x ["one" "two"]] (content x))))) 
+
 (defn xhtml-strict* [node]
   (-> node
     (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
