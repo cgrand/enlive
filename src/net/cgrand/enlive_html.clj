@@ -309,6 +309,7 @@
 ;; main macros
 
 (defmacro transformation
+ ([] `identity)
  ([form] form)
  ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
 
