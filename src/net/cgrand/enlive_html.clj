@@ -284,11 +284,6 @@
  [source selector args & forms]
   `(snippet* (select (html-resource ~source) ~selector) ~args ~@forms))  
 
-(defmacro sniptest
- "A handy macro for experimenting at the repl" 
- [source-string & forms]
-  `(apply str (emit* ((snippet* (html-resource (java.io.StringReader. ~source-string)) [] ~@forms)))))
-
 (defmacro template 
  "A template returns a seq of string."
  ([source args & forms]
@@ -313,27 +308,27 @@
          specs))))
 
 ;; test utilities
-(defn- htmlize [node]
+(defn- htmlize* [node]
   (cond
     (map? node)
       (-> node
         (assoc-in [:attrs :class] (attr-values node :class))
-        (update-in [:content] (comp htmlize seq)))
+        (update-in [:content] (comp htmlize* seq)))
     (or (coll? node) (seq? node))
-      (map htmlize node)
+      (map htmlize* node)
     :else node))
 
-(defn- html [s]
-  (htmlize 
+(defn- htmlize [s]
+  (htmlize* 
     (if (string? s)
       (html-resource (java.io.StringReader. s))
       s))) 
 
-(defn- src [s]
+(defn html-src [s]
   (first (html-resource (java.io.StringReader. s))))
 
 (defn- same? [& xs]
-  (apply = (map html xs)))
+  (apply = (map htmlize xs)))
 
 (defn- elt 
  ([tag] (elt tag nil))
@@ -346,6 +341,11 @@
  is-same
  [& forms]
  `(is (same? ~@forms)))
+
+(defmacro sniptest
+ "A handy macro for experimenting at the repl" 
+ [source-string & forms]
+  `(apply str (emit* ((transformation ~@forms) (html-src ~source-string))))) 
 
 ;; transformations
 
@@ -600,7 +600,7 @@
    ([b] (nth-child 0 b))
    ([a b] (sm/pred (nth? z/lefts a b))))
 
-  (are (same? _2 (at (src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
+  (are (same? _2 (at (html-src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-child 2)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt>5" 
     [[:dt (nth-child 2 0)]] "<dl><dt>1<dt class=foo>2<dt>3<dt class=foo>4<dt>5" 
     [[:dt (nth-child 3 1)]] "<dl><dt class=foo>1<dt>2<dt>3<dt class=foo>4<dt>5" 
@@ -613,7 +613,7 @@
    ([b] (nth-last-child 0 b))
    ([a b] (sm/pred (nth? z/rights a b))))
 
-  (are (same? _2 (at (src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
+  (are (same? _2 (at (html-src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-last-child 2)]] "<dl><dt>1<dt>2<dt>3<dt class=foo>4<dt>5" 
     [[:dt (nth-last-child 2 0)]] "<dl><dt>1<dt class=foo>2<dt>3<dt class=foo>4<dt>5" 
     [[:dt (nth-last-child 3 1)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt class=foo>5" 
@@ -632,7 +632,7 @@
    ([b] (nth-of-type 0 b))
    ([a b] (sm/pred (nth? (filter-of-type z/lefts) a b))))
    
-  (are (same? _2 (at (src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
+  (are (same? _2 (at (html-src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-of-type 2)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt>5" 
     [[:dt (nth-of-type 2 0)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
     [[:dt (nth-of-type 3 1)]] "<dl><dt class=foo>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
@@ -645,7 +645,7 @@
    ([b] (nth-last-of-type 0 b))
    ([a b] (sm/pred (nth? (filter-of-type z/rights) a b))))
   
-  (are (same? _2 (at (src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
+  (are (same? _2 (at (html-src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-last-of-type 2)]] "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
     [[:dt (nth-last-of-type 2 0)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
     [[:dt (nth-last-of-type 3 1)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt class=foo>5" 
@@ -683,7 +683,7 @@
 
 (set-test has    
   (is-same "<div><p>XXX<p class='ok'><a>link</a><p>YYY" 
-    (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
+    (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
       [[:p (has [:a])]] (add-class "ok"))))
 
 (defmacro but
@@ -693,11 +693,11 @@
 
 (set-test but    
   (is-same "<div><p>XXX<p><a class='ok'>link</a><p>YYY" 
-    (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
+    (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
       [:div (but :p)] (add-class "ok")))
       
   (is-same "<div><p class='ok'>XXX<p><a>link</a><p class='ok'>YYY" 
-    (at (src "<div><p>XXX<p><a>link</a><p>YYY") 
+    (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
       [[:p (but (has [:a]))]] (add-class "ok"))))
 
 (defn left* [state]
@@ -710,7 +710,7 @@
   `(left* (selector-step ~selector-step)))
 
 (set-test left
-  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h3 (left :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
     [[:h3 (left :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
     [[:h3 (left :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX"))
@@ -724,7 +724,7 @@
   `(lefts* (selector-step ~selector-step)))
 
 (set-test lefts
-  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h3 (lefts :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
     [[:h3 (lefts :h1)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
     [[:h3 (lefts :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
@@ -740,7 +740,7 @@
   `(right* (selector-step ~selector-step)))
 
 (set-test right
-  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h2 (right :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (right :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
     [[:h2 (right :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
@@ -754,20 +754,20 @@
   `(rights* (selector-step ~selector-step)))
 
 (set-test rights  
-  (are (same? _2 (at (src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
+  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
     [[:h2 (rights :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :p)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
 
 ;; tests that are easier to define once everything exists 
 (set-test transform
-  (is-same "<div>" (at (src "<div><span>") [:span] nil)))
+  (is-same "<div>" (at (html-src "<div><span>") [:span] nil)))
   
 (set-test clone-for
-  (is-same "<ul><li>one<li>two" (at (src "<ul><li>") [:li] (clone-for [x ["one" "two"]] (content x))))) 
+  (is-same "<ul><li>one<li>two" (at (html-src "<ul><li>") [:li] (clone-for [x ["one" "two"]] (content x))))) 
 
 (set-test move
-  (are (same? _2 ((move [:span] [:div] _1) (src "<span>1</span><div id=target>here</div><span>2</span>")))
+  (are (same? _2 ((move [:span] [:div] _1) (html-src "<span>1</span><div id=target>here</div><span>2</span>")))
   substitute "<span>1</span><span>2</span>"
   content "<div id=target><span>1</span><span>2</span></div>"
   after "<div id=target>here</div><span>1</span><span>2</span>"
