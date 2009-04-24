@@ -384,6 +384,7 @@
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
 
 (defn remove-class 
+ "Removes the specified classes from the selected node." 
  [& classes]
   #(let [classes (apply disj (attr-values % :class) classes)
          attrs (:attrs %)
@@ -403,26 +404,34 @@
      (for ~comprehension ((transformation ~@forms) node#))))
 
 (defn append
+ "Appends the values to the actual content."
  [& values]
   #(assoc % :content (concat (:content %) (flatten values)))) 
 
 (defn prepend
+ "Prepends the values to the actual content."
  [& values]
   #(assoc % :content (concat (flatten values) (:content %)))) 
 
 (defn after
+ "Inserts the values after the current element."
  [& values]
   #(cons % (flatten values)))
 
 (defn before
+ "Inserts the values before the current element."
  [& values]
   #(concat (flatten values) [%]))
 
 (defn substitute
+ "Replaces the current element."
  [& values]
  (constantly (flatten values)))
 
-(defmacro move 
+(defmacro move
+ "Takes all nodes (under the current element) matched by src-selector, removes
+  them and combines them with the elements matched by dest-selector.
+  By default, destination elements are replaced." 
  ([src-selector dest-selector] `(move ~src-selector ~dest-selector substitute))
  ([src-selector dest-selector combiner]
   `(fn [node#]
@@ -437,7 +446,9 @@
     (vary-meta assoc ::preamble 
       "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n")))  
 
-(defmacro xhtml-strict [& forms]
+(defmacro xhtml-strict
+ "Adds xhtml-strict's DTD." 
+ [& forms]
   `(do-> (transformation ~@forms) xhtml-strict*)) 
 
 ;; predicates utils

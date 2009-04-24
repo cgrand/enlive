@@ -181,4 +181,10 @@ Enlive defines several helper functions:
                      or (clone-for [item items] 
                           selector1 transformation1
                           selector2 transformation2)
+  append             (append "xyz" a-node "abc")
+  prepend            (prepend "xyz" a-node "abc")
+  after              (after "xyz" a-node "abc")
+  before             (before "xyz" a-node "abc")
+  substitute         (substitute "xyz" a-node "abc")
+  move
 </pre>
