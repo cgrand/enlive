@@ -186,5 +186,5 @@ Enlive defines several helper functions:
   after              (after "xyz" a-node "abc")
   before             (before "xyz" a-node "abc")
   substitute         (substitute "xyz" a-node "abc")
-  move
+  move               (move [:.footnote] [:#footnotes] content)
 </pre>
