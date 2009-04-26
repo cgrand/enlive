@@ -30,7 +30,7 @@
  "Loads and parse an HTML resource and closes the stream."
  [stream] 
   (list 
-    (with-open [stream stream]
+    (with-open [#^java.io.Closeable stream stream]
       (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
 
 (defmulti html-resource "Loads an HTML resource, returns a seq of nodes." type)
@@ -48,7 +48,7 @@
   (load-html-resource (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))))
 
 (defmethod html-resource java.io.File
- [file]
+ [#^java.io.File file]
   (load-html-resource (java.io.FileInputStream. file)))
 
 (defmethod html-resource java.io.Reader
@@ -152,7 +152,7 @@
 (defn attr-values 
  "Returns the whitespace-separated values of the specified attr as a set."
  [node attr]
-  (disj (set (-> node :attrs (attr "") (.split "\\s+"))) ""))
+  (disj (set (-> node :attrs (attr "") str (.split "\\s+"))) ""))
 
 ;; selector syntax
 (defn- simplify-associative [[op & forms]]
