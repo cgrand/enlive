@@ -257,8 +257,7 @@
   (let [select1 
          (fn select1 [loc previous-state] 
            (when-let [state (and (z/branch? loc) (sm/step previous-state loc))]
-             (if (sm/accept? state)
-               (list (z/node loc))
+             (concat (when (sm/accept? state) (list (z/node loc)))
                (mapcat #(select1 % state) (children-locs loc)))))]
     (mapcat #(select1 (z/xml-zip %) state) nodes)))
       
@@ -774,3 +773,6 @@
   before "<span>1</span><span>2</span><div id=target>here</div>"
   append "<div id=target>here<span>1</span><span>2</span></div>"
   prepend "<div id=target><span>1</span><span>2</span>here</div>"))
+  
+(set-test select 
+  (is (= 3 (count (select (htmlize "<h1>hello</h1>") [:*])))))
