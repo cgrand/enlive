@@ -5,7 +5,7 @@ Enlive is a selector-based (à la CSS) templating library for Clojure.
 An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
 
 
-h2. What's wrong with the old Enlive?
+h2. What was wrong with the old Enlive?
 
 Premature optimization. It drove me to write a convoluted and limited system. The new Enlive is more regular, more powerful and easier to reason about.
 
@@ -188,3 +188,9 @@ Enlive defines several helper functions:
   substitute         (substitute "xyz" a-node "abc")
   move               (move [:.footnote] [:#footnotes] content)
 </pre>
+
+h2. Known limitations/problems
+
+* No namespaces support (hence unsuitable for most XML)
+* Some whitespaces are eaten by clojure.xml (Enlive will soon provide a workaround)
+* @script@ and @style@ tags may need special escaping of their content
