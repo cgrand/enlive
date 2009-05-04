@@ -107,19 +107,39 @@
     (-> l (z/insert-right item) (insertion-point :right))
     (-> ip up-loc (z/insert-child item) (insertion-point :prepend))))
 
+(defn- remove-loc [l]
+  (let [lefts (z/lefts l)
+        rights (z/rights l)
+        u (z/up l)
+        n (z/make-node u (z/node u) (concat lefts rights))]
+    (loop [ip (-> u (z/replace n) (insertion-point :prepend)) s (seq lefts)] 
+      (if s 
+        (recur (right ip) (clojure.core/next s)) 
+        ip))))
+
+(defn remove-left 
+ "Removes the item to the left of the insertion-point, if any."
+ [ip]
+  (if-let [l (left-loc ip)] (remove-loc l) ip))
+
+(defn remove-right 
+ "Removes the item to the right of the insertion-point, if any."
+ [ip]
+  (if-let [r (right-loc ip)] (remove-loc r) ip))
+
 (comment
   (defn show-ip [ip] (-> ip (insert-left '*) first z/root))
-  (def e (z/vector-zip []))
-  (-> e (insertion-point :append) show-ip) ; [*]
-  (-> e (insertion-point :append) (insert-left 1) show-ip) ; [1 *]
-  (-> e (insertion-point :append) (insert-left 1) (insert-right 2) show-ip) ; [1 * 2]
-  (-> e (insertion-point :append) (insert-left 1) (insert-right 2) left show-ip) ; [* 1 2]
-  (-> e (insertion-point :append) (insert-left [1 2]) show-ip) ; [[1 2] *]
-  (-> e (insertion-point :append) (insert-left [1 2]) left show-ip) ; [* [1 2]]
-  (-> e (insertion-point :append) (insert-left [1 2]) left right show-ip) ; [[1 2] *]
-  (-> e (insertion-point :append) (insert-left [1 2]) left next show-ip) ; [[* 1 2]]
-  (-> e (insertion-point :append) (insert-left [1 2]) left next next show-ip) ; [[1 * 2]]
-  (-> e (insertion-point :append) (insert-left [1 2]) left next next next show-ip) ; [[1 2 *]]
-  (-> e (insertion-point :append) (insert-left [1 2]) left next next next next show-ip) ; [[1 2] *]
-  (-> e (insertion-point :append) (insert-left [1 2]) left next next next next prev show-ip) ; [[1 2 *]]
+  (def e (-> [] z/vector-zip (insertion-point :append)))
+  (-> e show-ip) ; [*]
+  (-> e (insert-left 1) show-ip) ; [1 *]
+  (-> e (insert-left 1) (insert-right 2) show-ip) ; [1 * 2]
+  (-> e (insert-left 1) (insert-right 2) left show-ip) ; [* 1 2]
+  (-> e (insert-left [1 2]) show-ip) ; [[1 2] *]
+  (-> e (insert-left [1 2]) left show-ip) ; [* [1 2]]
+  (-> e (insert-left [1 2]) left right show-ip) ; [[1 2] *]
+  (-> e (insert-left [1 2]) left next show-ip) ; [[* 1 2]]
+  (-> e (insert-left [1 2]) left next next show-ip) ; [[1 * 2]]
+  (-> e (insert-left [1 2]) left next next next show-ip) ; [[1 2 *]]
+  (-> e (insert-left [1 2]) left next next next next show-ip) ; [[1 2] *]
+  (-> e (insert-left [1 2]) left next next next next prev show-ip) ; [[1 2 *]]
 )
