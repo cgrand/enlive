@@ -103,7 +103,7 @@
   (-> x meta ::annotations))
 
 (defn- emit [node]
-  (if (map? node) 
+  (if (xml/tag? node) 
     ((:emit (annotations node) emit-tag) node)
     [(xml-str node)]))
 
@@ -113,7 +113,7 @@
     (emit node)))
   
 (defn emit* [node-or-nodes]
-  (if (map? node-or-nodes) (emit-root node-or-nodes) (mapcat emit-root node-or-nodes)))
+  (if (xml/tag? node-or-nodes) (emit-root node-or-nodes) (mapcat emit-root node-or-nodes)))
 
 (defn- emitter [{:keys [tag content attrs] :as node}]
   (let [name (name tag)
@@ -137,7 +137,7 @@
         :else (emit-tag elt)))))
 
 (defn annotate [node]
-  (if (map? node)
+  (if (xml/tag? node)
     (let [node (update-in node [:content] #(map annotate %))] 
       (vary-meta node assoc ::annotations {:emit (emitter node)}))
     node))
@@ -145,7 +145,7 @@
 ;; utilities
 
 (defn- not-node? [x]
-  (cond (string? x) false (map? x) false :else true))
+  (cond (string? x) false (xml/tag? x) false :else true))
 
 (defn- flatten [x]
   (remove not-node? (tree-seq not-node? seq x)))
@@ -239,7 +239,7 @@
     (z/node loc)))
 
 (defn transform [nodes [state transformation]]
-  (flatmap #(transform-loc (z/xml-zip %) state (or transformation (constantly nil))) nodes))
+  (flatmap #(transform-loc (xml/xml-zip %) state (or transformation (constantly nil))) nodes))
 
 (defn at* [nodes & rules]
   (reduce transform nodes (partition 2 rules)))
@@ -263,7 +263,7 @@
            (when-let [state (and (z/branch? loc) (sm/step previous-state loc))]
              (concat (when (sm/accept? state) (list (z/node loc)))
                (mapcat #(select1 % state) (children-locs loc)))))]
-    (mapcat #(select1 (z/xml-zip %) state) nodes)))
+    (mapcat #(select1 (xml/xml-zip %) state) nodes)))
       
 (defmacro select
  "Returns the seq of nodes and sub-nodes matched by the specified selector."
@@ -313,7 +313,7 @@
 ;; test utilities
 (defn- htmlize* [node]
   (cond
-    (map? node)
+    (xml/tag? node)
       (-> node
         (assoc-in [:attrs :class] (attr-values node :class))
         (update-in [:content] (comp htmlize* seq)))
@@ -462,7 +462,7 @@
 
 ;; predicates
 (defn- test-step [expected state node]
-  (= expected (boolean (sm/accept? (sm/step state (z/xml-zip node))))))
+  (= expected (boolean (sm/accept? (sm/step state (xml/xml-zip node))))))
 
 (def any (pred (constantly true)))
 
@@ -593,7 +593,7 @@
  [f a b]
   (if (zero? a)
     #(= (-> (f %) count inc) b)
-    #(let [an+b (-> (filter map? (f %)) count inc)
+    #(let [an+b (-> (filter xml/tag? (f %)) count inc)
            an (- an+b b)]
        (and (zero? (rem an a)) (<= 0 (quot an a))))))
 
@@ -705,7 +705,7 @@
 
 (defn left* [state]
  (sm/pred 
-   #(when-let [sibling (first (filter map? (reverse (z/lefts %))))]
+   #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
       (select? [sibling] state))))
 
 (defmacro left 
@@ -720,7 +720,7 @@
 
 (defn lefts* [state]
  (sm/pred 
-   #(select? (filter map? (z/lefts %)) state)))
+   #(select? (filter xml/tag? (z/lefts %)) state)))
   
 (defmacro lefts
  [selector-step]
@@ -735,7 +735,7 @@
 
 (defn right* [state]
  (sm/pred 
-   #(when-let [sibling (first (filter map? (z/rights %)))]
+   #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
       (select? [sibling] state))))
 
 (defmacro right 
@@ -750,7 +750,7 @@
 
 (defn rights* [state]
  (sm/pred 
-   #(select? (filter map? (z/rights %)) state)))
+   #(select? (filter xml/tag? (z/rights %)) state)))
   
 (defmacro rights 
  [selector-step]
