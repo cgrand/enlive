@@ -604,7 +604,7 @@
 (defn- nth? 
  [f a b]
   (if (zero? a)
-    #(= (-> (f %) count inc) b)
+    #(= (-> (filter xml/tag? (f %)) count inc) b)
     #(let [an+b (-> (filter xml/tag? (f %)) count inc)
            an (- an+b b)]
        (and (zero? (rem an a)) (<= 0 (quot an a))))))
