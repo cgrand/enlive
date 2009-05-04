@@ -86,12 +86,15 @@
   (mapcat (fn [[k v]]
             [" " (name k) "=\"" (attr-str v) "\""]) attrs))
 
+(defn- content-emitter [tag-name]
+  (if (#{"script" "style"} tag-name) str emit))
+
 (defn- emit-tag [tag]
   (let [name (-> tag :tag name)]
     (concat ["<" name]
       (emit-attrs (:attrs tag))
       (if-let [s (seq (:content tag))]
-        (concat [">"] (mapcat emit s) ["</" name ">"])
+        (concat [">"] (mapcat (content-emitter name) s) ["</" name ">"])
         (if (*self-closing-tags* tag) 
           [" />"]
           ["></" name ">"])))))
@@ -122,6 +125,7 @@
                  (str open close))]
         open [open]
         close [close]
+        emit (content-emitter name)
         full [(apply str (emit-tag node))]]
     (fn [elt]
       (cond
@@ -776,3 +780,7 @@
   
 (set-test select 
   (is (= 3 (count (select (htmlize "<h1>hello</h1>") [:*])))))
+  
+(set-test emit 
+  (is (= "<html><body><h1>hello&lt;<script>if (im < bad) document.write('&lt;')</script></h1></body></html>"
+        (sniptest "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')"))))
