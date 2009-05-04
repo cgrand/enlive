@@ -20,11 +20,12 @@
 ;; HTML I/O stuff
 
 (defn- startparse-tagsoup [s ch]
-  (let [p (org.ccil.cowan.tagsoup.Parser.)]
-    (.setFeature p "http://www.ccil.org/~cowan/tagsoup/features/default-attributes" false)
-    (.setFeature p "http://www.ccil.org/~cowan/tagsoup/features/cdata-elements" true)
-    (.setContentHandler p ch)
-    (.parse p s)))
+  (doto (org.ccil.cowan.tagsoup.Parser.)
+    (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/default-attributes" false)
+    (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/cdata-elements" true)
+    (.setContentHandler ch)
+    (.setProperty "http://xml.org/sax/properties/lexical-handler" ch)
+    (.parse s)))
 
 (defn- load-html-resource 
  "Loads and parse an HTML resource and closes the stream."
@@ -99,13 +100,17 @@
           [" />"]
           ["></" name ">"])))))
 
+(defn- emit-comment [node]
+  ["<!--" (str (:data node)) "-->"])
+  
 (defn- annotations [x]
   (-> x meta ::annotations))
 
 (defn- emit [node]
-  (if (xml/tag? node) 
-    ((:emit (annotations node) emit-tag) node)
-    [(xml-str node)]))
+  (cond 
+    (xml/tag? node) ((:emit (annotations node) emit-tag) node)
+    (xml/comment? node) (emit-comment node) 
+    :else [(xml-str node)]))
 
 (defn- emit-root [node]
   (if-let [preamble (-> node meta ::preamble)]
@@ -115,7 +120,7 @@
 (defn emit* [node-or-nodes]
   (if (xml/tag? node-or-nodes) (emit-root node-or-nodes) (mapcat emit-root node-or-nodes)))
 
-(defn- emitter [{:keys [tag content attrs] :as node}]
+(defn- tag-emitter [{:keys [tag content attrs] :as node}]
   (let [name (name tag)
         attrs-str (apply str (emit-attrs attrs))
         open (str "<" name attrs-str ">")
@@ -136,11 +141,18 @@
             empty)
         :else (emit-tag elt)))))
 
+(defn- comment-emitter [{data :data :as node}]
+  (let [s (apply str (emit-comment node))]
+    #(if (= node %) s (emit-comment node))))
+
 (defn annotate [node]
-  (if (xml/tag? node)
-    (let [node (update-in node [:content] #(map annotate %))] 
-      (vary-meta node assoc ::annotations {:emit (emitter node)}))
-    node))
+  (cond
+    (xml/tag? node)
+      (let [node (update-in node [:content] #(map annotate %))] 
+        (vary-meta node assoc ::annotations {:emit (tag-emitter node)}))
+    (xml/comment? node)
+      (vary-meta node assoc ::annotations {:emit (comment-emitter node)})  
+    :else node))
       
 ;; utilities
 
