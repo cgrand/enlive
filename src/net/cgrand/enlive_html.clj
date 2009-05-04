@@ -455,16 +455,16 @@
          ~src-selector nil
          ~dest-selector (apply ~combiner nodes#)))))) 
      
-(defn xhtml-strict* [node]
+(defn strict-mode* [node]
   (-> node
     (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
     (vary-meta assoc ::preamble 
-      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n")))  
+      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \n  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">")))
 
-(defmacro xhtml-strict
- "Adds xhtml-strict's DTD." 
+(defmacro strict-mode
+ "Adds xhtml-transitional DTD to switch browser in 'strict' mode." 
  [& forms]
-  `(do-> (transformation ~@forms) xhtml-strict*)) 
+  `(do-> (transformation ~@forms) strict-mode*)) 
 
 ;; predicates utils
 (defn pred 
