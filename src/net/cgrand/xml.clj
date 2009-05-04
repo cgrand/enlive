@@ -10,7 +10,7 @@
   (:require [clojure.zip :as z])
   (:require [net.cgrand.insertion-point :as ip])
   (:import (org.xml.sax ContentHandler Attributes SAXException XMLReader)
-           (org.xml.sax.helpers DefaultHandler)
+           (org.xml.sax.ext DefaultHandler2)
            (javax.xml.parsers SAXParser SAXParserFactory)))
 
 (defstruct element :tag :attrs :content)
@@ -40,7 +40,7 @@
     (ip/insert-left ip s)))
 
 (defn- handler [ip]
-  (proxy [DefaultHandler] []
+  (proxy [DefaultHandler2] []
     (startElement [uri local-name q-name #^Attributes atts]
       (let [e (struct element 
                 (clojure.lang.Keyword/intern (symbol q-name))
@@ -51,7 +51,9 @@
     (endElement [uri local-name q-name]
       (swap! ip ip/up-right))
     (characters [ch start length]
-      (swap! ip merge-text-left (String. ch start length)))))
+      (swap! ip merge-text-left (String. ch start length)))
+    (comment [ch start length]
+      (swap! ip ip/insert-left {:type :comment :data (String. ch start length)}))))
 
 (defn startparse-sax [s ch]
   (.. SAXParserFactory (newInstance) (newSAXParser) (parse s ch)))
