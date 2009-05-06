@@ -157,7 +157,7 @@
 ;; utilities
 
 (defn- not-node? [x]
-  (cond (string? x) false (xml/tag? x) false :else true))
+  (not (or (string? x) (map? x))))
 
 (defn- flatten [x]
   (remove not-node? (tree-seq not-node? seq x)))
@@ -776,7 +776,8 @@
 
 ;; tests that are easier to define once everything exists 
 (set-test transform
-  (is-same "<div>" (at (html-src "<div><span>") [:span] nil)))
+  (is-same "<div>" (at (html-src "<div><span>") [:span] nil))
+  (is-same "<!-- comment -->" (at (html-src "<!-- comment -->") [:span] nil)))
   
 (set-test clone-for
   (is-same "<ul><li>one<li>two" (at (html-src "<ul><li>") [:li] (clone-for [x ["one" "two"]] (content x))))) 
