@@ -236,19 +236,17 @@
 ;; core 
   
 (defn- children-locs [loc]
-  (take-while identity (iterate z/right (z/down loc))))
+  (when (z/branch? loc) (take-while identity (iterate z/right (z/down loc)))))
 
 (defn- transform-loc [loc previous-state transformation]
-  (if (z/branch? loc)
-    (let [state (sm/step previous-state loc)
-          children (flatmap #(transform-loc % state transformation) (children-locs loc))
-          node (if (= children (z/children loc)) 
-                 (z/node loc) 
-                 (z/make-node loc (z/node loc) children))]
-      (if (sm/accept? state)
-        (transformation node)
-        node))
-    (z/node loc)))
+  (let [state (sm/step previous-state loc)
+        children (flatmap #(transform-loc % state transformation) (children-locs loc))
+        node (if (and (z/branch? loc) (not= children (z/children loc)))
+                 (z/make-node loc (z/node loc) children) 
+                 (z/node loc))]
+    (if (sm/accept? state)
+      (transformation node)
+      node)))
 
 (defn transform [nodes [state transformation]]
   (flatmap #(transform-loc (xml/xml-zip %) state (or transformation (constantly nil))) nodes))
@@ -272,7 +270,7 @@
 (defn select* [nodes state]
   (let [select1 
          (fn select1 [loc previous-state] 
-           (when-let [state (and (z/branch? loc) (sm/step previous-state loc))]
+           (let [state (sm/step previous-state loc)]
              (concat (when (sm/accept? state) (list (z/node loc)))
                (mapcat #(select1 % state) (children-locs loc)))))]
     (mapcat #(select1 (xml/xml-zip %) state) nodes)))
@@ -467,10 +465,15 @@
   `(do-> (transformation ~@forms) strict-mode*)) 
 
 ;; predicates utils
+(defn zip-pred 
+ "Turns a predicate function on elements locs into a predicate-step usable in selectors."
+ [f]
+  (sm/pred #(and (z/branch? %) (f %))))
+
 (defn pred 
  "Turns a predicate function on elements into a predicate-step usable in selectors."
  [f]
-  (sm/pred #(f (z/node %))))
+  (zip-pred #(f (z/node %))))
 
 ;; predicates
 (defn- test-step [expected state node]
@@ -599,7 +602,7 @@
   (multi-attr-pred is-first-segment?))
 
 (def root 
-  (sm/pred #(-> % z/up nil?)))
+  (zip-pred #(-> % z/up nil?)))
 
 (defn- nth? 
  [f a b]
@@ -613,7 +616,7 @@
   (defn nth-child
    "Selector step, tests if the node has an+b-1 siblings on its left. See CSS :nth-child."
    ([b] (nth-child 0 b))
-   ([a b] (sm/pred (nth? z/lefts a b))))
+   ([a b] (zip-pred (nth? z/lefts a b))))
 
   (are (same? _2 (at (html-src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-child 2)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt>5" 
@@ -626,7 +629,7 @@
   (defn nth-last-child
    "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
    ([b] (nth-last-child 0 b))
-   ([a b] (sm/pred (nth? z/rights a b))))
+   ([a b] (zip-pred (nth? z/rights a b))))
 
   (are (same? _2 (at (html-src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-last-child 2)]] "<dl><dt>1<dt>2<dt>3<dt class=foo>4<dt>5" 
@@ -645,7 +648,7 @@
   (defn nth-of-type
    "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
    ([b] (nth-of-type 0 b))
-   ([a b] (sm/pred (nth? (filter-of-type z/lefts) a b))))
+   ([a b] (zip-pred (nth? (filter-of-type z/lefts) a b))))
    
   (are (same? _2 (at (html-src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-of-type 2)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt>5" 
@@ -658,7 +661,7 @@
   (defn nth-last-of-type
    "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
    ([b] (nth-last-of-type 0 b))
-   ([a b] (sm/pred (nth? (filter-of-type z/rights) a b))))
+   ([a b] (zip-pred (nth? (filter-of-type z/rights) a b))))
   
   (are (same? _2 (at (html-src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
     [[:dt (nth-last-of-type 2)]] "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
@@ -701,10 +704,15 @@
     (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
       [[:p (has [:a])]] (add-class "ok"))))
 
+(defmacro but-node
+ "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not" 
+ [selector-step]
+  `(sm/complement-next (selector-step ~selector-step)))
+
 (defmacro but
  "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
  [selector-step]
-  `(sm/complement-next (selector-step ~selector-step)))
+  `(sm/intersection any (but-node ~selector-step)))
 
 (set-test but    
   (is-same "<div><p>XXX<p><a class='ok'>link</a><p>YYY" 
@@ -773,6 +781,15 @@
     [[:h2 (rights :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :p)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
     [[:h2 (rights :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
+
+(with-test
+  (def any-node (sm/pred (constantly true)))
+
+  (is (= 3 (count (select (htmlize "<i>this</i> is a <i>test</i>") [:body :> any-node])))))  
+
+(def text-node (pred string?))
+
+(def comment-node (pred xml/comment?))
 
 ;; tests that are easier to define once everything exists 
 (set-test transform
