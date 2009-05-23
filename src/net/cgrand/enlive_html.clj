@@ -475,6 +475,11 @@
  [f]
   (zip-pred #(f (z/node %))))
 
+(defn text-pred 
+ "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
+ [f]
+  (sm/pred #(let [n (z/node %s)] (and (string? n) (f n)))))
+
 ;; predicates
 (defn- test-step [expected state node]
   (= expected (boolean (sm/accept? (sm/step state (xml/xml-zip node))))))
