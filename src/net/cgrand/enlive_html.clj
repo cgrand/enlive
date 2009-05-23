@@ -88,7 +88,7 @@
             [" " (name k) "=\"" (attr-str v) "\""]) attrs))
 
 (defn- content-emitter [tag-name]
-  (if (#{"script" "style"} tag-name) str emit))
+  (if (#{"script" "style"} tag-name) (fn [x] [(str x)]) emit))
 
 (defn- emit-tag [tag]
   (let [name (-> tag :tag name)]
