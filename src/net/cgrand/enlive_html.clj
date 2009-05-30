@@ -478,7 +478,7 @@
 (defn text-pred 
  "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
  [f]
-  (sm/pred #(let [n (z/node %s)] (and (string? n) (f n)))))
+  (sm/pred #(let [n (z/node %)] (and (string? n) (f n)))))
 
 ;; predicates
 (defn- test-step [expected state node]
