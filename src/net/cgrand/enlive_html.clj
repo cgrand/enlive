@@ -23,6 +23,7 @@
   (doto (org.ccil.cowan.tagsoup.Parser.)
     (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/default-attributes" false)
     (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/cdata-elements" true)
+    (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/ignorable-whitespace" true)
     (.setContentHandler ch)
     (.setProperty "http://xml.org/sax/properties/lexical-handler" ch)
     (.parse s)))

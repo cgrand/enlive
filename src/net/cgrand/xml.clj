@@ -52,6 +52,8 @@
       (swap! ip ip/up-right))
     (characters [ch start length]
       (swap! ip merge-text-left (String. ch start length)))
+    (ignorableWhitespace [ch start length]
+      (swap! ip merge-text-left (String. ch start length)))
     (comment [ch start length]
       (swap! ip ip/insert-left {:type :comment :data (String. ch start length)}))))
 
