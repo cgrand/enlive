@@ -97,7 +97,7 @@
       (emit-attrs (:attrs tag))
       (if-let [s (seq (:content tag))]
         (concat [">"] (mapcat (content-emitter name) s) ["</" name ">"])
-        (if (*self-closing-tags* tag) 
+        (if (*self-closing-tags* (:tag tag)) 
           [" />"]
           ["></" name ">"])))))
 
