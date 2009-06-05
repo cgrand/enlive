@@ -142,5 +142,3 @@ Enlive defines several helper functions:
 h2. Known limitations/problems
 
 * No namespaces support (hence unsuitable for most XML)
-* Some whitespaces are eaten by clojure.xml (Enlive will soon provide a workaround)
-* @script@ and @style@ tags may need special escaping of their content
