@@ -60,65 +60,13 @@ Enlive enforces (in @select*@ and @transform-loc@) that selectors can only match
 
 h3. Syntax
 
-See http://cgrand.github.com/enlive/syntax.html
-
-A selector is either a vector or a set of selectors (denoting grouping).
-
-Each element in the vector is either a combinator, a "simple selector":http://www.w3.org/TR/2009/WD-css3-selectors-20090310/#simple-selectors-dfn or a compound selector (union or intersection), here is a summary:
-
-<pre>
-  Enlive                           CSS
-  =======================================================
-  :>                               >
-  :*                               *
-  :div                             div
-  :div#some-id                     div#some-id
-  :div.class1.class2               div.class1.class2
-  :*#foo.bar                       *#foo.bar
-  :#foo.bar                        #foo.bar
-  (attr? :href)                    *[href]
-  (attr? :href :title)             *[href][title]
-  (attr= :href "foo")              *[href=foo]
-  (attr= :href "foo" :title "bar") *[href=foo][title=bar]
-  [:a.action (attr? :href)]        a.action[href]
-  #{:div :p}                       _no equivalent_
-  (attr-has :foo "bar" "baz")      *[foo~=bar][foo~=baz]   
-  (attr-starts                     *[href^=foo][title^=bar]
-    :href "foo" :title "bar")
-  (attr-ends                       *[href$=foo][title$=bar]
-    :href "foo" :title "bar")
-  (attr-contains                   *[href*=foo][title*=bar]
-    :href "foo" :title "bar")
-  (attr|= :lang "fr")              *[lang|=fr]
-  root                             *:root
-  (nth-child 3)                    *:nth-child(3)
-  (nth-child 4 2)                  *:nth-child(4n+2)
-  (nth-last-child 3)               *:nth-last-child(3)
-  (nth-last-child 4 2)             *:nth-last-child(4n+2)
-  (nth-of-type 3)                  *:nth-of-type(3)
-  (nth-of-type 4 2)                *:nth-of-type(4n+2)
-  (nth-last-of-type 3)             *:nth-last-of-type(3)
-  (nth-last-of-type 4 2)           *:nth-last-of-type(4n+2)
-  first-child                      *:first-child
-  last-child                       *:last-child
-  first-of-type                    *:first-of-type
-  last-of-type                     *:last-of-type
-  only-child                       *:only-child
-  only-of-type                     *:only-of-type
-  void                             *:empty
-  odd                              *:nth-child(odd)
-  even                             *:nth-child(even)
-  (but :a)                         :not(a)
-  (has [:a])                       no equivalent
-  [:p (left :h1)]                  h1 + p  
-  [:p (lefts :h1)]                 h1 ~ p
-  [:p (right :h1)]                 no equivalent  
-  [:p (rights :h1)]                no equivalent
-</pre>
+See "syntax.html":http://cgrand.github.com/enlive/syntax.html
 
 Some examples:
 
 <pre>
+  Enlive                           CSS
+  =======================================================
   [:div]                                       div
   [:body :script]                              body script
   #{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
