@@ -9,7 +9,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns net.cgrand.enlive-html
-  "enlive-html is a selector-based templating engine."
+  "enlive-html is a selector-based transformation and extraction engine."
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z])
   (:require [net.cgrand.enlive-html.state-machine :as sm])
@@ -186,22 +186,14 @@
 (defn- emit-chain [forms]
   (simplify-associative (cons `sm/chain forms)))
 
-(with-test
-  (defn- compile-keyword [kw]
-    (let [[[first-letter :as tag-name] :as segments] (.split (name kw) "(?=[#.])")
-          tag-pred (when-not (contains? #{nil \* \# \.} first-letter) [`(tag= ~(keyword tag-name))])
-          ids-pred (for [s segments :when (= \# (first s))] `(id= ~(subs s 1)))
-          classes (set (for [s segments :when (= \. (first s))] (subs s 1)))
-          class-pred (when (seq classes) [`(has-class ~@classes)])
-          all-preds (concat tag-pred ids-pred class-pred)] 
-      (emit-intersection (or (seq all-preds) [`any]))))
-
-  (are (= _2 (compile-keyword _1))
-    :foo `(tag= :foo)
-    :* `any
-    :#id `(id= "id")
-    :.class1 `(has-class "class1")
-    :foo#bar.baz1.baz2 `(sm/intersection (tag= :foo) (id= "bar") (has-class "baz1" "baz2"))))
+(defn- compile-keyword [kw]
+  (let [[[first-letter :as tag-name] :as segments] (.split (name kw) "(?=[#.])")
+        tag-pred (when-not (contains? #{nil \* \# \.} first-letter) [`(tag= ~(keyword tag-name))])
+        ids-pred (for [s segments :when (= \# (first s))] `(id= ~(subs s 1)))
+        classes (set (for [s segments :when (= \. (first s))] (subs s 1)))
+        class-pred (when (seq classes) [`(has-class ~@classes)])
+        all-preds (concat tag-pred ids-pred class-pred)] 
+    (emit-intersection (or (seq all-preds) [`any]))))
     
 (declare compile-step)
 
@@ -320,46 +312,6 @@
      ~@(map (fn [[name selector args & forms]]
               `(def ~name (snippet ~xml ~selector ~args ~@forms)))
          specs))))
-
-;; test utilities
-(defn- htmlize* [node]
-  (cond
-    (xml/tag? node)
-      (-> node
-        (assoc-in [:attrs :class] (attr-values node :class))
-        (update-in [:content] (comp htmlize* seq)))
-    (or (coll? node) (seq? node))
-      (map htmlize* node)
-    :else node))
-
-(defn- htmlize [s]
-  (htmlize* 
-    (if (string? s)
-      (html-resource (java.io.StringReader. s))
-      s))) 
-
-(defn html-src [s]
-  (first (html-resource (java.io.StringReader. s))))
-
-(defn- same? [& xs]
-  (apply = (map htmlize xs)))
-
-(defn- elt 
- ([tag] (elt tag nil))
- ([tag attrs & content]
-   {:tag tag
-    :attrs attrs
-    :content content}))
-
-(defmacro #^{:private true} 
- is-same
- [& forms]
- `(is (same? ~@forms)))
-
-(defmacro sniptest
- "A handy macro for experimenting at the repl" 
- [source-string & forms]
-  `(apply str (emit* ((transformation ~@forms) (html-src ~source-string))))) 
 
 ;; transformations
 
@@ -482,43 +434,22 @@
   (sm/pred #(let [n (z/node %)] (and (string? n) (f n)))))
 
 ;; predicates
-(defn- test-step [expected state node]
-  (= expected (boolean (sm/accept? (sm/step state (xml/xml-zip node))))))
-
 (def any (pred (constantly true)))
 
-(with-test
-  (defn tag= 
-   "Selector predicate, :foo is as short-hand for (tag= :foo)."
-   [tag-name]
-    (pred #(= (:tag %) tag-name)))
-    
-  (are (test-step _1 _2 _3)
-    true (tag= :foo) (elt :foo)
-    false (tag= :bar) (elt :foo)))
+(defn tag= 
+ "Selector predicate, :foo is as short-hand for (tag= :foo)."
+ [tag-name]
+  (pred #(= (:tag %) tag-name)))
 
-(with-test
-  (defn id=
-   "Selector predicate, :#foo is as short-hand for (id= \"foo\")."
-   [id]
-    (pred #(= (-> % :attrs :id) id)))
+(defn id=
+ "Selector predicate, :#foo is as short-hand for (id= \"foo\")."
+ [id]
+  (pred #(= (-> % :attrs :id) id)))
 
-  (are (test-step _1 _2 _3)
-    true (id= "foo") (elt :div {:id "foo"})
-    false (id= "bar") (elt :div {:id "foo"})
-    false (id= "foo") (elt :div)))
-
-(with-test  
-  (defn attr? 
-   "Selector predicate, tests if the specified attributes are present."
-   [& kws]
-    (pred #(every? (-> % :attrs keys set) kws)))
-
-  (are (test-step _1 _2 _3)
-    true (attr? :href) (elt :a {:href "http://cgrand.net/"})
-    false (attr? :href) (elt :a {:name "toc"})
-    false (attr? :href :title) (elt :a {:href "http://cgrand.net/"})
-    true (attr? :href :title) (elt :a {:href "http://cgrand.net/" :title "home"})))
+(defn attr? 
+ "Selector predicate, tests if the specified attributes are present."
+ [& kws]
+  (pred #(every? (-> % :attrs keys set) kws)))
   
 (defn- every?+ [pred & colls]
   (every? #(apply pred %) (apply map vector colls))) 
@@ -531,17 +462,9 @@
       (pred #(when-let [attrs (:attrs %)]
                (every?+ single-attr-pred (map attrs ks) vs))))))           
 
-(with-test
-  (def #^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
-   attr= 
-    (multi-attr-pred =))
-    
-  (are (test-step _1 _2 (elt :a {:href "http://cgrand.net/" :title "home"}))
-    true (attr= :href "http://cgrand.net/")
-    false (attr= :href "http://clojure.org/")
-    false (attr= :href "http://cgrand.net/" :name "home") 
-    false (attr= :href "http://cgrand.net/" :title "homepage")
-    true (attr= :href "http://cgrand.net/" :title "home")))
+(def #^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
+ attr= 
+  (multi-attr-pred =))
 
 (defn attr-has
  "Selector predicate, tests if the specified whitespace-seperated attribute contains the specified values. See CSS ~="
@@ -562,41 +485,17 @@
 (defn- contains-substring? [#^String s #^String substring]
   (and s (<= 0 (.indexOf s substring))))
 
-(with-test
-  (def #^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."} 
-   attr-starts
-    (multi-attr-pred starts-with?))
+(def #^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."} 
+ attr-starts
+  (multi-attr-pred starts-with?))
 
-  (are (test-step _1 _2 (elt :a {:href "http://cgrand.net/" :title "home"}))
-    true (attr-starts :href "http://cgr")
-    false (attr-starts :href "http://clo")
-    false (attr-starts :href "http://cgr" :name "ho")
-    false (attr-starts :href "http://cgr" :title "x") 
-    true (attr-starts :href "http://cgr" :title "ho")))
+(def #^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."} 
+ attr-ends
+  (multi-attr-pred ends-with?))
 
-(with-test
-  (def #^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."} 
-   attr-ends
-    (multi-attr-pred ends-with?))
-
-  (are (test-step _1 _2 (elt :a {:href "http://cgrand.net/" :title "home"}))
-    true (attr-ends :href "d.net/")
-    false (attr-ends :href "e.org/")
-    false (attr-ends :href "d.net/" :name "me")
-    false (attr-ends :href "d.net/" :title "hom")
-    true (attr-ends :href "d.net/" :title "me")))
-
-(with-test
-  (def #^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."} 
-   attr-contains
-    (multi-attr-pred contains-substring?))
-    
-  (are (test-step _1 _2 (elt :a {:href "http://cgrand.net/" :title "home"}))
-    true (attr-contains :href "rand")
-    false (attr-contains :href "jure")
-    false (attr-contains :href "rand" :name "om") 
-    false (attr-contains :href "rand" :title "pa")
-    true (attr-contains :href "rand" :title "om")))
+(def #^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."} 
+ attr-contains
+  (multi-attr-pred contains-substring?))
 
 (defn- is-first-segment? [#^String s #^String segment]
   (and s 
@@ -618,31 +517,15 @@
            an (- an+b b)]
        (and (zero? (rem an a)) (<= 0 (quot an a))))))
 
-(with-test      
-  (defn nth-child
-   "Selector step, tests if the node has an+b-1 siblings on its left. See CSS :nth-child."
-   ([b] (nth-child 0 b))
-   ([a b] (zip-pred (nth? z/lefts a b))))
+(defn nth-child
+ "Selector step, tests if the node has an+b-1 siblings on its left. See CSS :nth-child."
+ ([b] (nth-child 0 b))
+ ([a b] (zip-pred (nth? z/lefts a b))))
 
-  (are (same? _2 (at (html-src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
-    [[:dt (nth-child 2)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt>5" 
-    [[:dt (nth-child 2 0)]] "<dl><dt>1<dt class=foo>2<dt>3<dt class=foo>4<dt>5" 
-    [[:dt (nth-child 3 1)]] "<dl><dt class=foo>1<dt>2<dt>3<dt class=foo>4<dt>5" 
-    [[:dt (nth-child -1 3)]] "<dl><dt class=foo>1<dt class=foo>2<dt class=foo>3<dt>4<dt>5" 
-    [[:dt (nth-child 3 -1)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt class=foo>5"))
-      
-(with-test      
-  (defn nth-last-child
-   "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
-   ([b] (nth-last-child 0 b))
-   ([a b] (zip-pred (nth? z/rights a b))))
-
-  (are (same? _2 (at (html-src "<dl><dt>1<dt>2<dt>3<dt>4<dt>5") _1 (add-class "foo")))    
-    [[:dt (nth-last-child 2)]] "<dl><dt>1<dt>2<dt>3<dt class=foo>4<dt>5" 
-    [[:dt (nth-last-child 2 0)]] "<dl><dt>1<dt class=foo>2<dt>3<dt class=foo>4<dt>5" 
-    [[:dt (nth-last-child 3 1)]] "<dl><dt>1<dt class=foo>2<dt>3<dt>4<dt class=foo>5" 
-    [[:dt (nth-last-child -1 3)]] "<dl><dt>1<dt>2<dt class=foo>3<dt class=foo>4<dt class=foo>5" 
-    [[:dt (nth-last-child 3 -1)]] "<dl><dt class=foo>1<dt>2<dt>3<dt class=foo>4<dt>5"))
+(defn nth-last-child
+ "Selector step, tests if the node has an+b-1 siblings on its right. See CSS :nth-last-child."
+ ([b] (nth-last-child 0 b))
+ ([a b] (zip-pred (nth? z/rights a b))))
 
 (defn- filter-of-type [f]
   (fn [loc]
@@ -650,31 +533,15 @@
           pred #(= (:tag %) tag)]
       (filter pred (f loc)))))
 
-(with-test
-  (defn nth-of-type
-   "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
-   ([b] (nth-of-type 0 b))
-   ([a b] (zip-pred (nth? (filter-of-type z/lefts) a b))))
-   
-  (are (same? _2 (at (html-src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
-    [[:dt (nth-of-type 2)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt>5" 
-    [[:dt (nth-of-type 2 0)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
-    [[:dt (nth-of-type 3 1)]] "<dl><dt class=foo>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
-    [[:dt (nth-of-type -1 3)]] "<dl><dt class=foo>1<dd>def #1<dt class=foo>2<dt class=foo>3<dd>def #3<dt>4<dt>5" 
-    [[:dt (nth-of-type 3 -1)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt class=foo>5"))
-   
-(with-test
-  (defn nth-last-of-type
-   "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
-   ([b] (nth-last-of-type 0 b))
-   ([a b] (zip-pred (nth? (filter-of-type z/rights) a b))))
-  
-  (are (same? _2 (at (html-src "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt>4<dt>5") _1 (add-class "foo")))    
-    [[:dt (nth-last-of-type 2)]] "<dl><dt>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
-    [[:dt (nth-last-of-type 2 0)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt class=foo>4<dt>5" 
-    [[:dt (nth-last-of-type 3 1)]] "<dl><dt>1<dd>def #1<dt class=foo>2<dt>3<dd>def #3<dt>4<dt class=foo>5" 
-    [[:dt (nth-last-of-type -1 3)]] "<dl><dt>1<dd>def #1<dt>2<dt class=foo>3<dd>def #3<dt class=foo>4<dt class=foo>5" 
-    [[:dt (nth-last-of-type 3 -1)]] "<dl><dt class=foo>1<dd>def #1<dt>2<dt>3<dd>def #3<dt class=foo>4<dt>5"))
+(defn nth-of-type
+ "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
+ ([b] (nth-of-type 0 b))
+ ([a b] (zip-pred (nth? (filter-of-type z/lefts) a b))))
+ 
+(defn nth-last-of-type
+ "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
+ ([b] (nth-last-of-type 0 b))
+ ([a b] (zip-pred (nth? (filter-of-type z/rights) a b))))
 
 (def first-child (nth-child 1))      
       
@@ -705,11 +572,6 @@
  [selector]
   `(has* (sm/chain any (selector ~selector))))
 
-(set-test has    
-  (is-same "<div><p>XXX<p class='ok'><a>link</a><p>YYY" 
-    (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
-      [[:p (has [:a])]] (add-class "ok"))))
-
 (defmacro but-node
  "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not" 
  [selector-step]
@@ -720,15 +582,6 @@
  [selector-step]
   `(sm/intersection any (but-node ~selector-step)))
 
-(set-test but    
-  (is-same "<div><p>XXX<p><a class='ok'>link</a><p>YYY" 
-    (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
-      [:div (but :p)] (add-class "ok")))
-      
-  (is-same "<div><p class='ok'>XXX<p><a>link</a><p class='ok'>YYY" 
-    (at (html-src "<div><p>XXX<p><a>link</a><p>YYY") 
-      [[:p (but (has [:a]))]] (add-class "ok"))))
-
 (defn left* [state]
  (sm/pred 
    #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
@@ -738,12 +591,6 @@
  [selector-step]
   `(left* (selector-step ~selector-step)))
 
-(set-test left
-  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
-    [[:h3 (left :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
-    [[:h3 (left :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
-    [[:h3 (left :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX"))
-
 (defn lefts* [state]
  (sm/pred 
    #(select? (filter xml/tag? (z/lefts %)) state)))
@@ -751,13 +598,6 @@
 (defmacro lefts
  [selector-step]
   `(lefts* (selector-step ~selector-step)))
-
-(set-test lefts
-  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
-    [[:h3 (lefts :h2)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
-    [[:h3 (lefts :h1)]] "<h1>T1<h2>T2<h3 class=ok>T3<p>XXX" 
-    [[:h3 (lefts :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
-      
 
 (defn right* [state]
  (sm/pred 
@@ -768,12 +608,6 @@
  [selector-step]
   `(right* (selector-step ~selector-step)))
 
-(set-test right
-  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
-    [[:h2 (right :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
-    [[:h2 (right :p)]] "<h1>T1<h2>T2<h3>T3<p>XXX" 
-    [[:h2 (right :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
-
 (defn rights* [state]
  (sm/pred 
    #(select? (filter xml/tag? (z/rights %)) state)))
@@ -782,41 +616,8 @@
  [selector-step]
   `(rights* (selector-step ~selector-step)))
 
-(set-test rights  
-  (are (same? _2 (at (html-src "<h1>T1<h2>T2<h3>T3<p>XXX") _1 (add-class "ok"))) 
-    [[:h2 (rights :h3)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
-    [[:h2 (rights :p)]] "<h1>T1<h2 class=ok>T2<h3>T3<p>XXX" 
-    [[:h2 (rights :h1)]] "<h1>T1<h2>T2<h3>T3<p>XXX")) 
-
-(with-test
-  (def any-node (sm/pred (constantly true)))
-
-  (is (= 3 (count (select (htmlize "<i>this</i> is a <i>test</i>") [:body :> any-node])))))  
+(def any-node (sm/pred (constantly true)))
 
 (def text-node (pred string?))
 
 (def comment-node (pred xml/comment?))
-
-;; tests that are easier to define once everything exists 
-(set-test transform
-  (is-same "<div>" (at (html-src "<div><span>") [:span] nil))
-  (is-same "<!-- comment -->" (at (html-src "<!-- comment -->") [:span] nil)))
-  
-(set-test clone-for
-  (is-same "<ul><li>one<li>two" (at (html-src "<ul><li>") [:li] (clone-for [x ["one" "two"]] (content x))))) 
-
-(set-test move
-  (are (same? _2 ((move [:span] [:div] _1) (html-src "<span>1</span><div id=target>here</div><span>2</span>")))
-  substitute "<span>1</span><span>2</span>"
-  content "<div id=target><span>1</span><span>2</span></div>"
-  after "<div id=target>here</div><span>1</span><span>2</span>"
-  before "<span>1</span><span>2</span><div id=target>here</div>"
-  append "<div id=target>here<span>1</span><span>2</span></div>"
-  prepend "<div id=target><span>1</span><span>2</span>here</div>"))
-  
-(set-test select 
-  (is (= 3 (count (select (htmlize "<h1>hello</h1>") [:*])))))
-  
-(set-test emit 
-  (is (= "<html><body><h1>hello&lt;<script>if (im < bad) document.write('&lt;')</script></h1></body></html>"
-        (sniptest "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')"))))

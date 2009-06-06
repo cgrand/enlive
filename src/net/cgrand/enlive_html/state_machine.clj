@@ -36,74 +36,43 @@
  [s loc]
   (or (when-let [f (:transition-fn s)] (f loc)) fail))
 
-(with-test 
-  (defn union 
-   "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
-   ([] fail)
-   ([& states]
-     (state (some accept? states) 
-       (let [states (remove #{fail} states)]
-         (fn [loc] (apply union (map #(step % loc) states)))))))
-       
-  (is (accept? (step (union fail (state false (constantly accept))) :a)))
-  (is (not (accept? (step (union fail (state false (constantly fail))) :a))))
-  (is (accept? (step (union (state false (constantly fail)) (state false (constantly accept))) :a)))
-  (is (accept? (step (union (state false (constantly accept)) (state false (constantly accept))) :a)))) 
+(defn union 
+ "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
+ ([] fail)
+ ([& states]
+   (state (some accept? states) 
+     (let [states (remove #{fail} states)]
+       (fn [loc] (apply union (map #(step % loc) states)))))))
   
-(with-test
-  (defn intersection
-   "Returns a state machine which succeeds when all specified state machines succeed."
-   ([] fail) 
-   ([& states]
-     (when-not (some #{fail} states)
-       (state (every? accept? states)
-         (fn [loc] (apply intersection (map #(step % loc) states)))))))
-       
-  (is (not (accept? (step (intersection fail (state false (constantly accept))) :a))))
-  (is (not (accept? (step (intersection (state false (constantly fail)) (state false (constantly accept))) :a))))
-  (is (accept? (step (intersection (state false (constantly accept)) (state false (constantly accept))) :a)))) 
+(defn intersection
+ "Returns a state machine which succeeds when all specified state machines succeed."
+ ([] fail) 
+ ([& states]
+   (when-not (some #{fail} states)
+     (state (every? accept? states)
+       (fn [loc] (apply intersection (map #(step % loc) states)))))))
 
-(with-test
-  (defn complement 
-   [s]
-    (condp = s
-      fail descendants-or-self
-      descendants-or-self fail
-      (state (not (accept? s))
-        #(complement (step s %)))))
+(defn complement 
+ [s]
+  (condp = s
+    fail descendants-or-self
+    descendants-or-self fail
+    (state (not (accept? s))
+      #(complement (step s %)))))
   
-  (is (accept? (complement fail)))
-  (is (not (accept? (complement accept))))
-  (is (accept? (step (complement fail) :a)))
-  (is (accept? (step (complement accept) :a))))
+(defn complement-next
+ [s]
+  (state (accept? s)
+    #(complement (step s %)))) 
 
-(with-test
-  (defn complement-next
-   [s]
-    (state (accept? s)
-      #(complement (step s %)))) 
-
-  (is (accept? (complement-next accept)))
-  (is (not (accept? (complement-next fail))))
-  (is (accept? (step (complement-next fail) :a)))
-  (is (accept? (step (complement-next accept) :a))))
-
-(with-test
-  (defn chain
-    ([s] s)
-    ([s1 s2]
-      (let [chained-fn #(chain (step s1 %) s2)]  
-        (if (accept? s1)
-          (state (accept? s2) #(union (step s2 %) (chained-fn %)))
-          (state false chained-fn))))
-    ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
-    
-  (are (= _1 (boolean (accept? (reduce step (chain (state false #(state (= :a %1) nil)) (state false #(state (= :b %1) nil)))  _2))))
-    true [:a :b]
-    false [:a :c]
-    false [:c :b]
-    false [:a :a]
-    false [:b :b]))
+(defn chain
+  ([s] s)
+  ([s1 s2]
+    (let [chained-fn #(chain (step s1 %) s2)]  
+      (if (accept? s1)
+        (state (accept? s2) #(union (step s2 %) (chained-fn %)))
+        (state false chained-fn))))
+  ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
 
 (defn pred 
  "Turns a predicate function on locs into a state-machine that accepts anything that satisfies the predicate."
