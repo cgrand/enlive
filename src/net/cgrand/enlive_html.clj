@@ -260,18 +260,26 @@
 (defmacro at [node & rules]
   `(at* [~node] ~@(map #(%1 %2) (cycle [#(list `selector %) identity]) rules)))
 
-(defn select* [nodes state]
+(defn zip-select* [locs state]
   (let [select1 
          (fn select1 [loc previous-state] 
            (let [state (sm/step previous-state loc)]
-             (concat (when (sm/accept? state) (list (z/node loc)))
+             (concat (when (sm/accept? state) (list loc))
                (mapcat #(select1 % state) (children-locs loc)))))]
-    (mapcat #(select1 (xml/xml-zip %) state) nodes)))
+    (mapcat #(select1 % state) locs)))
+      
+(defn select* [nodes state]
+  (map z/node (zip-select* (map xml/xml-zip nodes) state))) 
       
 (defmacro select
  "Returns the seq of nodes and sub-nodes matched by the specified selector."
  [nodes selector]
   `(select* ~nodes (selector ~selector)))
+
+(defmacro zip-select
+ "Returns the seq of locs matched by the specified selector."
+ [locs selector]
+  `(zip-select* ~locs (selector ~selector)))
 
 ;; main macros
 
