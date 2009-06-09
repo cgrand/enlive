@@ -60,7 +60,7 @@ Enlive enforces (in @select*@ and @transform-loc@) that selectors can only match
 
 h3. Syntax
 
-See "syntax.html":http://cgrand.github.com/enlive/syntax.html
+See "syntax.html":http://enlive.cgrand.net/syntax.html
 
 Some examples:
 
