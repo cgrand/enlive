@@ -30,9 +30,8 @@
 (defn- load-html-resource 
  "Loads and parse an HTML resource and closes the stream."
  [stream] 
-  (list 
-    (with-open [#^java.io.Closeable stream stream]
-      (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
+  (with-open [#^java.io.Closeable stream stream]
+    (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
 
 (defmulti html-resource "Loads an HTML resource, returns a seq of nodes." type)
 
