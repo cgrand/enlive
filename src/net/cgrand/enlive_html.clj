@@ -624,6 +624,6 @@
 
 (def any-node (sm/pred (constantly true)))
 
-(def text-node (pred string?))
+(def text-node (sm/pred #(string? (z/node %))))
 
-(def comment-node (pred xml/comment?))
+(def comment-node (sm/pred #(xml/comment? (z/node %)))) 
