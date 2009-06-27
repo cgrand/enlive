@@ -12,8 +12,7 @@
   "enlive-html is a selector-based transformation and extraction engine."
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z])
-  (:require [net.cgrand.enlive-html.state-machine :as sm])
-  (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is are]]))
+  (:require [net.cgrand.enlive-html.state-machine :as sm]))
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 

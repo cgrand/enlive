@@ -10,8 +10,7 @@
 
 (ns net.cgrand.enlive-html.state-machine
   "state machine stuff for enlive-html"
-  (:refer-clojure :exclude [complement])
-  (:use [clojure.contrib.test-is :as test-is :only [set-test with-test is are]]))
+  (:refer-clojure :exclude [complement]))
 
 ;; a state consists of a boolean (acceptance) and a function (from loc to state or nil)
 
