@@ -131,8 +131,11 @@
     :else [(xml-str node)]))
 
 (defn- emit-root [node]
-  (if-let [preamble (-> node meta ::preamble)]
-    (cons preamble (emit node))
+  (if-let [[name public-id system-id] (-> node meta ::xml/dtd)]
+    (let [preamble (if public-id 
+                     (str "<!DOCTYPE \"" name "\" PUBLIC \"" public-id "\"\n    \"" system-id "\">\n") 
+                     (str "<!DOCTYPE \"" name "\" SYSTEM \"" system-id "\">\n"))]
+      (cons preamble (emit node)))
     (emit node)))
   
 (defn emit* [node-or-nodes]
@@ -434,8 +437,9 @@
   (if (xml/tag? node)
     (-> node
       (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
-      (vary-meta assoc ::preamble 
-        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \n  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"))
+      (vary-meta assoc ::xml/dtd 
+        ["html" "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+         "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"]))
     node))
 
 (defmacro strict-mode

@@ -39,7 +39,7 @@
       (ip/insert-left ip s))
     (ip/insert-left ip s)))
 
-(defn- handler [ip]
+(defn- handler [ip metadata]
   (proxy [DefaultHandler2] []
     (startElement [uri local-name q-name #^Attributes atts]
       (let [e (struct element 
@@ -55,10 +55,29 @@
     (ignorableWhitespace [ch start length]
       (swap! ip merge-text-left (String. #^chars ch (int start) (int length))))
     (comment [ch start length]
-      (swap! ip ip/insert-left {:type :comment :data (String. #^chars ch (int start) (int length))}))))
+      (swap! ip ip/insert-left {:type :comment :data (String. #^chars ch (int start) (int length))}))
+    (startDTD [name publicId systemId]
+      (swap! metadata assoc ::dtd [name publicId systemId]))
+    (resolveEntity
+      ([name publicId baseURI systemId]
+        (doto (org.xml.sax.InputSource.)
+          (.setSystemId systemId)
+          (.setPublicId publicId)
+          (.setCharacterStream (java.io.StringReader. "")))) 
+      ([publicId systemId]
+        (let [#^DefaultHandler2 this this]
+          (proxy-super resolveEntity publicId systemId))))))
 
 (defn startparse-sax [s ch]
-  (.. SAXParserFactory (newInstance) (newSAXParser) (parse s ch)))
+  (-> (SAXParserFactory/newInstance)
+   (doto
+     (.setValidating false)
+     (.setFeature "http://xml.org/sax/features/external-general-entities" false)
+     (.setFeature "http://xml.org/sax/features/external-parameter-entities" false)) 
+   .newSAXParser
+   (doto
+     (.setProperty "http://xml.org/sax/properties/lexical-handler" ch))
+   (.parse s ch)))
 
 (defn parse
   "Parses and loads the source s, which can be a File, InputStream or
@@ -70,7 +89,9 @@
   ([s] (parse s startparse-sax))
   ([s startparse]
     (let [ip (atom (-> {:type :document :content nil} xml-zip (ip/insertion-point :append)))
-          content-handler (handler ip)]
+          metadata (atom {})
+          content-handler (handler ip metadata)]
       (startparse s content-handler)
-      (-> @ip ip/up-loc z/root :content seq)))) 
-
+      (map #(if (instance? clojure.lang.IObj %) (vary-meta % merge @metadata) %)
+        (-> @ip ip/up-loc z/root :content)))))
+         
