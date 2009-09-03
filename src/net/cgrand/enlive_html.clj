@@ -29,9 +29,10 @@
 
 (defn- load-html-resource 
  "Loads and parse an HTML resource and closes the stream."
- [stream] 
-  (with-open [#^java.io.Closeable stream stream]
-    (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
+ [stream]
+  (filter map?
+    (with-open [#^java.io.Closeable stream stream]
+      (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
 
 (defn- load-xml-resource 
  "Loads and parse a XML resource and closes the stream."
