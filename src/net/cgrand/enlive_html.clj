@@ -33,39 +33,57 @@
   (with-open [#^java.io.Closeable stream stream]
     (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup)))
 
-(defmulti html-resource "Loads an HTML resource, returns a seq of nodes." type)
+(defn- load-xml-resource 
+ "Loads and parse a XML resource and closes the stream."
+ [stream] 
+  (with-open [#^java.io.Closeable stream stream]
+    (xml/parse (org.xml.sax.InputSource. stream))))
 
-(defmethod html-resource clojure.lang.IPersistentMap
- [xml-data]
+(defmulti #^{:arglists '([resource loader])} get-resource 
+ "Loads a resource, using the specified loader. Returns a seq of nodes." 
+ (fn [res _] (type res)))
+
+(defn html-resource 
+ "Loads an HTML resource, returns a seq of nodes."
+ [resource]
+  (get-resource resource load-html-resource))
+
+(defn xml-resource 
+ "Loads an XML resource, returns a seq of nodes."
+ [resource]
+  (get-resource resource load-xml-resource))
+
+(defmethod get-resource clojure.lang.IPersistentMap
+ [xml-data _]
   (list xml-data))
 
-(defmethod html-resource clojure.lang.IPersistentCollection
- [nodes]
+(defmethod get-resource clojure.lang.IPersistentCollection
+ [nodes _]
   (seq nodes))
 
-(defmethod html-resource String
- [path]
-  (load-html-resource (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))))
+(defmethod get-resource String
+ [path loader]
+  (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
 
-(defmethod html-resource java.io.File
- [#^java.io.File file]
-  (load-html-resource (java.io.FileInputStream. file)))
+(defmethod get-resource java.io.File
+ [#^java.io.File file loader]
+  (loader (java.io.FileInputStream. file)))
 
-(defmethod html-resource java.io.Reader
- [reader]
-  (load-html-resource reader))
+(defmethod get-resource java.io.Reader
+ [reader loader]
+  (loader reader))
 
-(defmethod html-resource java.io.InputStream
- [stream]
-  (load-html-resource stream))
+(defmethod get-resource java.io.InputStream
+ [stream loader]
+  (loader stream))
 
-(defmethod html-resource java.net.URL
- [#^java.net.URL url]
-  (load-html-resource (.getContent url)))
+(defmethod get-resource java.net.URL
+ [#^java.net.URL url loader]
+  (loader (.getContent url)))
 
-(defmethod html-resource java.net.URI
- [#^java.net.URI uri]
-  (html-resource (.toURL uri)))
+(defmethod get-resource java.net.URI
+ [#^java.net.URI uri loader]
+  (get-resource (.toURL uri) loader))
 
 
 (defn- xml-str
@@ -313,11 +331,10 @@
 
 (defmacro defsnippets
  [source & specs]
-  (let [xml (html-resource source)]
-   `(do
-     ~@(map (fn [[name selector args & forms]]
-              `(def ~name (snippet ~xml ~selector ~args ~@forms)))
-         specs))))
+ `(let [xml# (html-resource ~source)] 
+   ~@(map (fn [[name selector args & forms]]
+            `(def ~name (snippet xml# ~selector ~args ~@forms)))
+       specs)))
 
 ;; transformations
 
@@ -413,10 +430,12 @@
          ~dest-selector (apply ~combiner nodes#)))))) 
      
 (defn strict-mode* [node]
-  (-> node
-    (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
-    (vary-meta assoc ::preamble 
-      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \n  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">")))
+  (if (xml/tag? node)
+    (-> node
+      (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
+      (vary-meta assoc ::preamble 
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \n  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"))
+    node))
 
 (defmacro strict-mode
  "Adds xhtml-transitional DTD to switch browser in 'strict' mode." 
