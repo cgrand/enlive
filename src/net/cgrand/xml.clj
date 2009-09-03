@@ -43,19 +43,19 @@
   (proxy [DefaultHandler2] []
     (startElement [uri local-name q-name #^Attributes atts]
       (let [e (struct element 
-                (clojure.lang.Keyword/intern (symbol q-name))
+                (keyword q-name)
                 (when (pos? (. atts (getLength)))
-                  (reduce #(assoc %1 (clojure.lang.Keyword/intern (symbol (.getQName atts %2))) (.getValue atts %2)) 
-                    {} (range (. atts (getLength))))))]
+                  (reduce #(assoc %1 (keyword (.getQName atts %2)) (.getValue atts (int %2))) 
+                    {} (range (.getLength atts)))))]
         (swap! ip insert-element e))) 
     (endElement [uri local-name q-name]
       (swap! ip ip/up-right))
     (characters [ch start length]
-      (swap! ip merge-text-left (String. ch start length)))
+      (swap! ip merge-text-left (String. #^chars ch (int start) (int length))))
     (ignorableWhitespace [ch start length]
-      (swap! ip merge-text-left (String. ch start length)))
+      (swap! ip merge-text-left (String. #^chars ch (int start) (int length))))
     (comment [ch start length]
-      (swap! ip ip/insert-left {:type :comment :data (String. ch start length)}))))
+      (swap! ip ip/insert-left {:type :comment :data (String. #^chars ch (int start) (int length))}))))
 
 (defn startparse-sax [s ch]
   (.. SAXParserFactory (newInstance) (newSAXParser) (parse s ch)))
