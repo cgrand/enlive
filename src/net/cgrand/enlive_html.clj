@@ -650,4 +650,14 @@
 
 (def text-node (sm/pred #(string? (z/node %))))
 
-(def comment-node (sm/pred #(xml/comment? (z/node %)))) 
+(def comment-node (sm/pred #(xml/comment? (z/node %))))
+
+;; screen-scraping utils
+(defn text
+ "Returns the text value of a node." 
+ {:tag String}
+ [node]
+  (cond
+    (string? node) node
+    (xml/tag? node) (apply str (map text (:content node))) 
+    :else ""))
