@@ -206,7 +206,9 @@
 (defn- emit-chain [forms]
   (simplify-associative (cons `sm/chain forms)))
 
-(defn- compile-keyword [kw]
+(defmulti compile-step type)
+
+(defmethod compile-step clojure.lang.Keyword [kw]
   (let [[[first-letter :as tag-name] :as segments] (.split (name kw) "(?=[#.])")
         tag-pred (when-not (contains? #{nil \* \# \.} first-letter) [`(tag= ~(keyword tag-name))])
         ids-pred (for [s segments :when (= \# (first s))] `(id= ~(subs s 1)))
@@ -215,20 +217,13 @@
         all-preds (concat tag-pred ids-pred class-pred)] 
     (emit-intersection (or (seq all-preds) [`any]))))
     
-(declare compile-step)
-
-(defn- compile-union [s]
+(defmethod compile-step clojure.lang.IPersistentSet [s]
   (emit-union (map compile-step s)))      
     
-(defn- compile-intersection [s]
+(defmethod compile-step clojure.lang.IPersistentVector [s]
   (emit-intersection (map compile-step s)))      
 
-(defn compile-step [s]
-  (cond
-    (keyword? s) (compile-keyword s)    
-    (set? s) (compile-union s)    
-    (vector? s) (compile-intersection s)
-    :else s))
+(defmethod compile-step :default [s] s)
 
 (defn- compile-chain [s]
   (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
