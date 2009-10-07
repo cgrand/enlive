@@ -1,0 +1,76 @@
+<project name="enlive" default="jar">
+
+  <description>
+    Pack all enlive sources into a JAR. Compile those that can
+    be compiled standalone if the clojure.jar property points us to
+    clojure.jar.
+  </description>
+
+  <property name="src" location="src"/>
+  <property name="build" location="classes"/>
+
+  <available property="hasclojure" file="${clojure.jar}"/>
+
+  <!-- The JAR file to create. -->
+  <property name="jarfile" location="enlive.jar"/>
+  <property name="slimjarfile" location="enlive-slim.jar"/>
+
+  <target name="init">
+    <tstamp/>
+    <mkdir dir="${build}"/>
+  </target>
+
+  <target name="clean" description="Remove generated files and directories.">
+    <delete file="${jarfile}"/>
+    <delete file="${slimjarfile}"/>
+    <delete dir="${build}"/>
+  </target>
+
+  <target name="check_hasclojure"
+          description="Print a warning message if clojure.jar is undefined"
+          unless="hasclojure">
+    <echo>WARNING: You have not defined a path to clojure.jar so I can't compile files.
+      This won't break anything.
+      To enable compiling, run "ant -Dclojure.jar=&lt;...path to clojure.jar..&gt;"
+    </echo>
+  </target>
+
+  <target name="compile_clojure" depends="init,check_hasclojure"
+          description="Compile Clojure sources."
+          if="hasclojure">
+    <java classname="clojure.lang.Compile">
+      <classpath>
+        <path location="${build}"/>
+        <path location="${src}"/>
+        <path location="${clojure.jar}"/>
+      </classpath>
+      <sysproperty key="clojure.compile.path" value="${build}"/>
+      <arg value="net.cgrand.enlive-html"/>
+      <arg value="net.cgrand.insertion-point"/>
+      <arg value="net.cgrand.xml"/>
+      <arg value="net.cgrand.enlive-html.state-machine"/>
+    </java>
+  </target>
+
+  <target name="jar" description="Create jar files." depends="compile_clojure">
+    <jar jarfile="${jarfile}">
+      <fileset file="epl-v10.html"/>
+      <fileset dir="${src}" includes="**/*.clj"/>
+      <fileset dir="${build}" includes="**/*.class"/>
+      <manifest>
+        <attribute name="Class-Path" value="."/>
+      </manifest>
+    </jar>
+
+    <jar jarfile="${slimjarfile}">
+      <fileset file="epl-v10.html"/>
+      <fileset dir="${src}" includes="**/*.clj"/>
+      <manifest>
+        <attribute name="Class-Path" value="."/>
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="clean-build" depends="clean,compile_clojure,jar"
+          description="Builds clojure-contrib from scratch and runs all tests."/>
+</project>
