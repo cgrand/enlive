@@ -7,7 +7,7 @@
   </description>
 
   <property name="src" location="src"/>
-  <property name="lib" location="src"/>
+  <property name="lib" location="lib"/>
   <property name="build" location="classes"/>
 	
   <available property="hasclojure" file="${clojure.jar}"/>
