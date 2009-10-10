@@ -5,11 +5,9 @@ Enlive is a selector-based (à la CSS) templating library for Clojure.
 An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
 
 
-h2. What was wrong with the old Enlive?
+h2. Where do I get support?
 
-Premature optimization. It drove me to write a convoluted and limited system. The new Enlive is more regular, more powerful and easier to reason about.
-
-I made it work (old Enlive), I'm making it right (new Enlive) and I'll make it faster.   
+"On the group":http://groups.google.com/group/enlive-clj
 
 
 h2. What's new in Enlive?
