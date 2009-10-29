@@ -133,8 +133,8 @@
 (defn- emit-root [node]
   (if-let [[name public-id system-id] (-> node meta ::xml/dtd)]
     (let [preamble (if public-id 
-                     (str "<!DOCTYPE \"" name "\" PUBLIC \"" public-id "\"\n    \"" system-id "\">\n") 
-                     (str "<!DOCTYPE \"" name "\" SYSTEM \"" system-id "\">\n"))]
+                     (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n") 
+                     (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n"))]
       (cons preamble (emit node)))
     (emit node)))
   
