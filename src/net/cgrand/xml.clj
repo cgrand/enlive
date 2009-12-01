@@ -27,7 +27,8 @@
  "Returns a zipper for xml elements (as from xml/parse),
  given a root element"
  [root]
-   (z/zipper tag? :content #(assoc %1 :content (and %2 (apply vector %2))) root))
+   (z/zipper #(or (tag? %) (document? %)) 
+     :content #(assoc %1 :content (and %2 (apply vector %2))) root))
 
 (defn- insert-element [ip e]
   (-> ip (ip/insert-right e) ip/down-right))
