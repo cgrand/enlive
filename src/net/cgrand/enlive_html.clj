@@ -132,9 +132,13 @@
 
 (defn- emit-root [node]
   (if-let [[name public-id system-id] (-> node meta ::xml/dtd)]
-    (let [preamble (if public-id 
-                     (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n") 
-                     (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n"))]
+    (let [preamble (cond
+                     public-id 
+                       (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n")
+                     system-id   
+                       (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
+                     :else
+                       (str "<!DOCTYPE " name ">\n"))]
       (cons preamble (emit node)))
     (emit node)))
   
@@ -656,3 +660,10 @@
     (string? node) node
     (xml/tag? node) (apply str (map text (:content node))) 
     :else ""))
+    
+(defn texts
+ "Returns the text value of a nodes collection." 
+ {:tag String}
+ [nodes]
+  (map text nodes))
+ 
