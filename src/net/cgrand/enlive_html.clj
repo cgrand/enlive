@@ -346,11 +346,16 @@
  [& values]
   #(assoc % :content (flatten values)))
 
+(defn html-snippet [& values]
+ "Concatenate values as a string and then parse it with tagsoup.
+  html-snippet doesn't insert missing <html> or <body> tags."
+  (-> (apply str "<bogon>" values) 
+    java.io.StringReader. html-resource first :content))
+  
 (defn html-content
  "Replaces the content of the node. Values are strings containing html code."
  [& values]
-  #(let [content (-> (apply str "<bogon>" values) java.io.StringReader. html-resource first :content)]
-     (assoc % :content content))) 
+  #(assoc % :content (apply html-snippet values))) 
 
 (defn wrap 
  ([tag] (wrap tag nil))
@@ -667,3 +672,11 @@
  [nodes]
   (map text nodes))
  
+ ;; repl-utils
+(defn sniptest* [nodes f]
+  (apply str (emit* (flatmap f nodes))))
+    
+(defmacro sniptest
+ "A handy macro for experimenting at the repl" 
+ [source-string & forms]
+  `(sniptest* (html-snippet ~source-string) (transformation ~@forms))) 
