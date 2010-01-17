@@ -24,6 +24,10 @@
     (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/cdata-elements" true)
     (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/ignorable-whitespace" true)
     (.setContentHandler ch)
+    (.setProperty "http://www.ccil.org/~cowan/tagsoup/properties/auto-detector"
+      (proxy [org.ccil.cowan.tagsoup.AutoDetector] []
+        (autoDetectingReader [#^java.io.InputStream is]
+          (java.io.InputStreamReader. is "UTF-8"))))
     (.setProperty "http://xml.org/sax/properties/lexical-handler" ch)
     (.parse s)))
 
