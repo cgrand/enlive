@@ -8,7 +8,6 @@
 
 (ns net.cgrand.xml
   (:require [clojure.zip :as z])
-  (:require [net.cgrand.insertion-point :as ip])
   (:import (org.xml.sax ContentHandler Attributes SAXException XMLReader)
            (org.xml.sax.ext DefaultHandler2)
            (javax.xml.parsers SAXParser SAXParserFactory)))
@@ -30,17 +29,17 @@
    (z/zipper #(or (tag? %) (document? %)) 
      :content #(assoc %1 :content (and %2 (apply vector %2))) root))
 
-(defn- insert-element [ip e]
-  (-> ip (ip/insert-right e) ip/down-right))
+(defn- insert-element [loc e]
+  (-> loc (z/append-child e) z/down z/rightmost))
 
-(defn- merge-text-left [ip s]
-  (if-let [l (ip/left-loc ip)]
-    (if (-> l z/node string?)
-      (-> ip ip/remove-left (ip/insert-left (str (z/node l) s)))
-      (ip/insert-left ip s))
-    (ip/insert-left ip s)))
+(defn- merge-text-left [loc s]
+  (or
+    (when-let [l (-> loc z/down z/rightmost)]
+      (when (-> l z/node string?)
+        (-> l (z/edit str s) z/up)))
+    (-> loc (z/append-child s)))) 
 
-(defn- handler [ip metadata]
+(defn- handler [loc metadata]
   (proxy [DefaultHandler2] []
     (startElement [uri local-name q-name #^Attributes atts]
       (let [e (struct element 
@@ -48,15 +47,15 @@
                 (when (pos? (. atts (getLength)))
                   (reduce #(assoc %1 (keyword (.getQName atts %2)) (.getValue atts (int %2))) 
                     {} (range (.getLength atts)))))]
-        (swap! ip insert-element e))) 
+        (swap! loc insert-element e))) 
     (endElement [uri local-name q-name]
-      (swap! ip ip/up-right))
+      (swap! loc z/up))
     (characters [ch start length]
-      (swap! ip merge-text-left (String. #^chars ch (int start) (int length))))
+      (swap! loc merge-text-left (String. #^chars ch (int start) (int length))))
     (ignorableWhitespace [ch start length]
-      (swap! ip merge-text-left (String. #^chars ch (int start) (int length))))
+      (swap! loc merge-text-left (String. #^chars ch (int start) (int length))))
     (comment [ch start length]
-      (swap! ip ip/insert-left {:type :comment :data (String. #^chars ch (int start) (int length))}))
+      (swap! loc z/append-child {:type :comment :data (String. #^chars ch (int start) (int length))}))
     (startDTD [name publicId systemId]
       (swap! metadata assoc ::dtd [name publicId systemId]))
     (resolveEntity
@@ -89,10 +88,10 @@
   a parser"
   ([s] (parse s startparse-sax))
   ([s startparse]
-    (let [ip (atom (-> {:type :document :content nil} xml-zip (ip/insertion-point :append)))
+    (let [loc (atom (-> {:type :document :content nil} xml-zip))
           metadata (atom {})
-          content-handler (handler ip metadata)]
+          content-handler (handler loc metadata)]
       (startparse s content-handler)
       (map #(if (instance? clojure.lang.IObj %) (vary-meta % merge @metadata) %)
-        (-> @ip ip/up-loc z/root :content)))))
+        (-> @loc z/root :content)))))
          
