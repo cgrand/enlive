@@ -265,7 +265,10 @@
       node)))
 
 (defn transform [nodes [state transformation]]
-  (flatmap #(transform-loc (xml/xml-zip %) state (or transformation (constantly nil))) nodes))
+  (if (= identity transformation)
+    nodes
+    (let [transformation (or transformation (constantly nil))]
+      (flatmap #(transform-loc (xml/xml-zip %) state transformation) nodes))))
 
 (defn at* [nodes & rules]
   (reduce transform nodes (partition 2 rules)))
