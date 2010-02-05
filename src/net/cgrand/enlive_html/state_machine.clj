@@ -13,6 +13,7 @@
   (:refer-clojure :exclude [complement]))
 
 ;; a state consists of a boolean (acceptance) and a function (from loc to state or nil)
+;; nil is a valid state, it's the hopeless state
 
 (let [s (create-struct :accept :transition-fn)]
   (defn state 
@@ -21,9 +22,8 @@
    ([accept transition-fn & etc]
      (apply assoc (state accept transition-fn) etc))))
 
+(def accept (state true nil))
 (def accept? :accept)
-
-(def fail (state false nil))
 
 (def accept (state true nil))
 
@@ -33,29 +33,29 @@
 (defn step
  "Returns the next state."  
  [s loc]
-  (or (when-let [f (:transition-fn s)] (f loc)) fail))
+  (when-let [f (:transition-fn s)] (f loc)))
 
 (defn union 
  "Returns a state machine which succeeds as soon as one of the specified state machines succeeds."
- ([] fail)
+ ([] nil)
  ([& states]
    (state (some accept? states) 
-     (let [states (remove #{fail} states)]
+     (let [states (remove nil? states)]
        (fn [loc] (apply union (map #(step % loc) states)))))))
   
 (defn intersection
  "Returns a state machine which succeeds when all specified state machines succeed."
- ([] fail) 
+ ([] nil) 
  ([& states]
-   (when-not (some #{fail} states)
+   (when-not (some nil? states)
      (state (every? accept? states)
        (fn [loc] (apply intersection (map #(step % loc) states)))))))
 
 (defn complement 
  [s]
   (condp = s
-    fail descendants-or-self
-    descendants-or-self fail
+    nil descendants-or-self
+    descendants-or-self nil
     (state (not (accept? s))
       #(complement (step s %)))))
   
@@ -67,14 +67,14 @@
 (defn chain
   ([s] s)
   ([s1 s2]
-    (let [chained-fn #(chain (step s1 %) s2)]  
-      (if (accept? s1)
-        (state (accept? s2) #(union (step s2 %) (chained-fn %)))
-        (state false chained-fn))))
+    (when s1
+      (let [chained-fn #(chain (step s1 %) s2)]  
+        (if (accept? s1)
+          (state (accept? s2) #(union (step s2 %) (chained-fn %)))
+          (state false chained-fn)))))
   ([s1 s2 & etc] (reduce chain (chain s1 s2) etc)))
 
 (defn pred 
  "Turns a predicate function on locs into a state-machine that accepts anything that satisfies the predicate."
  [f]
-  (state false (fn [loc]
-                 (state (f loc) nil))))
+  (state false #(when-let [a (f %)] accept)))
