@@ -284,7 +284,8 @@
   (compile-step selector-step))
 
 (defmacro at [node & rules]
-  `(at* [~node] ~@(map #(%1 %2) (cycle [#(list `selector %) identity]) rules)))
+  `(-> [~node] ~@(for [[s t] (partition 2 rules)] 
+                   `(transform [(selector ~s) ~t]))))
 
 (defn zip-select* [locs state]
   (let [select1 
