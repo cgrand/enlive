@@ -617,7 +617,7 @@
 (defmacro but-node
  "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not" 
  [selector-step]
-  `(sm/complement-next (selector-step ~selector-step)))
+  `(sm/complement1 (selector-step ~selector-step)))
 
 (defmacro but
  "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 

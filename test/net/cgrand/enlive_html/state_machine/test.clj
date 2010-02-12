@@ -14,27 +14,27 @@
   (:use [clojure.contrib.test-is :as test-is :only [set-test is are]]))
 
 (set-test union 
-  (is (accept? (step (union fail (state false (constantly accept))) :a)))
-  (is (not (accept? (step (union fail (state false (constantly fail))) :a))))
-  (is (accept? (step (union (state false (constantly fail)) (state false (constantly accept))) :a)))
+  (is (accept? (step (union nil (state false (constantly accept))) :a)))
+  (is (not (accept? (step (union nil (state false (constantly nil))) :a))))
+  (is (accept? (step (union (state false (constantly nil)) (state false (constantly accept))) :a)))
   (is (accept? (step (union (state false (constantly accept)) (state false (constantly accept))) :a)))) 
   
 (set-test intersection
-  (is (not (accept? (step (intersection fail (state false (constantly accept))) :a))))
-  (is (not (accept? (step (intersection (state false (constantly fail)) (state false (constantly accept))) :a))))
+  (is (not (accept? (step (intersection nil (state false (constantly accept))) :a))))
+  (is (not (accept? (step (intersection (state false (constantly nil)) (state false (constantly accept))) :a))))
   (is (accept? (step (intersection (state false (constantly accept)) (state false (constantly accept))) :a)))) 
 
 (set-test complement 
-  (is (accept? (complement fail)))
+  (is (accept? (complement nil)))
   (is (not (accept? (complement accept))))
-  (is (accept? (step (complement fail) :a)))
+  (is (accept? (step (complement nil) :a)))
   (is (accept? (step (complement accept) :a))))
 
-(set-test complement-next
-  (is (accept? (complement-next accept)))
-  (is (not (accept? (complement-next fail))))
-  (is (accept? (step (complement-next fail) :a)))
-  (is (accept? (step (complement-next accept) :a))))
+(set-test complement1
+  (is (accept? (complement1 accept)))
+  (is (not (accept? (complement1 nil))))
+  (is (accept? (step (complement1 nil) :a)))
+  (is (accept? (step (complement1 accept) :a))))
 
 (set-test chain
   (are (= _1 (boolean (accept? (reduce step (chain (state false #(state (= :a %1) nil)) (state false #(state (= :b %1) nil)))  _2))))

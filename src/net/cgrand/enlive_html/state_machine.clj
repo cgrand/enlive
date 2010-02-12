@@ -59,10 +59,10 @@
     (state (not (accept? s))
       #(complement (step s %)))))
   
-(defn complement-next
+(defn complement1
  [s]
   (state (accept? s)
-    #(complement (step s %)))) 
+    #(let [s (step s %)] (state (not (accept? s)) nil)))) 
 
 (defn chain
   ([s] s)
