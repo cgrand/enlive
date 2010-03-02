@@ -576,6 +576,13 @@
  [f]
   (sm/pred #(let [n (z/node %)] (and (string? n) (f n)))))
 
+(defn re-pred 
+ "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
+ [re]
+  (text-pred #(re-matches re %)))
+
+(def whitespace (re-pred #"\s*"))
+
 ;; predicates
 (def any (pred (constantly true)))
 
