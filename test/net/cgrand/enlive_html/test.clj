@@ -219,7 +219,13 @@
     substitute "<div><p>blabla<hr><h1>Title1"
     after "<div><p>blabla<hr><h2>Title2<p>blibli<h1>Title1"
     before "<div><p>blabla<hr><h1>Title1<h2>Title2<p>blibli"))
-  
+
+(set-test wrap
+  (is-same "<dl><ol><dt>Sample term</dt></ol><dd>sample description</dd></dl>"
+    (sniptest "<dl><dt>Sample term<dd>sample description" [:dt] (wrap :ol)))
+  (is-same "<dl><ol><dt>Sample term</dt><dd>sample description</dd></ol></dl>"
+    (sniptest "<dl><dt>Sample term<dd>sample description" {[:dt] [:dd]} (wrap :ol))))
+
 (set-test select 
   (is (= 3 (-> "<html><body><h1>hello</h1>" html-snippet (select [:*]) count))))
   

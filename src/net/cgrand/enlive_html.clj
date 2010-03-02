@@ -468,7 +468,7 @@
 (defn wrap 
  ([tag] (wrap tag nil))
  ([tag attrs]
-   #(array-map :tag tag :attrs attrs :content [%])))
+   #(array-map :tag tag :attrs attrs :content (as-nodes %))))
 
 (def unwrap :content)
 
