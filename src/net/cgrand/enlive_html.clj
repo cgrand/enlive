@@ -365,15 +365,16 @@
   (letfn [(select1 [locs previous-state-from previous-state-to] 
             (let [states-from (map #(sm/step previous-state-from %) locs)
                   states-to (map #(sm/step previous-state-to %) locs)
-                  descendants (mapcat #(select1 (children-locs %1) %2 %3) 
-                                locs states-from states-to)]
+                  descendants (reduce into []
+                                (map #(select1 (children-locs %1) %2 %3) 
+                                  locs states-from states-to))]
               (loop [fragments descendants fragment nil 
                      locs locs states-from states-from states-to states-to]
                 (if-let [[loc & etc] (seq locs)]
                   (if fragment
                     (let [fragment (conj fragment loc)]
                       (if (sm/accept? (first states-to))
-                        (recur (cons fragment fragments) nil etc 
+                        (recur (conj fragments fragment) nil etc 
                           (rest states-from) (rest states-to))
                         (recur fragments fragment etc 
                           (rest states-from) (rest states-to))))
