@@ -786,6 +786,20 @@
  {:tag String}
  [nodes]
   (map text nodes))
+
+(defmacro let-select
+ "For each node or fragment, performs a subselect and bind it to a local, 
+  then evaluates body.
+  bindings is a vector of binding forms and selectors." 
+ [nodes-or-fragments bindings & body]
+  (let [node-or-fragment (gensym "node-or-fragment__")
+        bindings 
+          (map (fn [f x] (f x)) 
+            (cycle [identity (fn [spec] `(select ~node-or-fragment ~spec))])
+            bindings)] 
+    `(map (fn [~node-or-fragment] 
+            (let [~@bindings]
+              ~@body)) ~nodes-or-fragments)))
  
  ;; repl-utils
 (defn sniptest* [nodes f]
