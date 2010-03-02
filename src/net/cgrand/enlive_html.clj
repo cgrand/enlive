@@ -413,7 +413,7 @@
 (defmacro transformation
  ([] `identity)
  ([form] form)
- ([form & forms] `(fn [node#] node# (at node# ~form ~@forms))))
+ ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
 
 (defmacro snippet* [nodes args & forms]
   `(let [nodes# (map annotate ~nodes)]
