@@ -188,11 +188,16 @@
 (defn- not-node? [x]
   (not (or (string? x) (map? x))))
 
+(defn as-nodes [node-or-nodes]
+  (if (not-node? node-or-nodes)
+    node-or-nodes
+    [node-or-nodes]))
+    
 (defn- flatten [x]
   (remove not-node? (tree-seq not-node? seq x)))
-  
-(defn flatmap [f xs]
-  (flatten (map f xs)))
+
+(defn flatmap [f node-or-nodes]
+  (flatten (map f (as-nodes node-or-nodes))))
 
 (defn attr-values 
  "Returns the whitespace-separated values of the specified attr as a set."
@@ -243,11 +248,30 @@
       next-chain      
       (emit-chain [`sm/descendants-or-self next-chain])))) 
 
-(defn compile-selector [s]
+(defn- compile-node-selector [s]
   (cond
-    (set? s) (emit-union (map compile-selector s))
+    (set? s) (emit-union (map compile-node-selector s))
     (vector? s) (compile-chain s)
     :else s))
+
+(defn node-selector [state]
+  (with-meta [state] {:type ::node-selector}))
+
+(defn node-selector? [selector]
+  (= ::node-selector (type selector)))
+
+(defn fragment-selector [from to]
+  (with-meta [from to] {:type ::fragment-selector}))
+
+(defn fragment-selector? [selector]
+  (= ::fragment-selector (type selector)))
+
+(defn compile-selector [s]
+  (if (map? s)
+    (let [[from to] (first s)]
+      `(fragment-selector ~(compile-node-selector from) 
+         ~(compile-node-selector to)))
+    `(node-selector ~(compile-node-selector s))))
 
 ;; core 
   
@@ -264,11 +288,50 @@
       (transformation node)
       node)))
 
-(defn transform [nodes [state transformation]]
+(defn- transform-node [nodes [state] transformation]
+  (let [transformation (or transformation (constantly nil))]
+    (flatmap #(transform-loc (xml/xml-zip %) state transformation) nodes)))
+
+(defn- transform-fragment-locs [locs from-state to-state transformation]
+  (let [transform-fragment-loc 
+         (fn [loc from-state to-state]
+           (let [children (transform-fragment-locs (children-locs loc)
+                            from-state to-state transformation)]
+             [(if (and (z/branch? loc) (not= children (z/children loc)))
+                (z/make-node loc (z/node loc) children) 
+                (z/node loc))
+              (sm/accept? from-state)
+              (sm/accept? to-state)]))
+        from-states (map #(sm/step from-state %) locs)
+        to-states (map #(sm/step to-state %) locs)
+        nodes+ (map transform-fragment-loc locs from-states to-states)]
+    (loop [nodes+ nodes+ fragment nil transformed-nodes []]
+      (if-let [[[node start? end?] & etc] nodes+]
+        (if fragment
+          (if end?
+            (recur etc nil
+              (conj transformed-nodes (transformation (conj fragment node))))
+            (recur etc (conj fragment node) transformed-nodes))
+          (if start? 
+            (recur nodes+ [] transformed-nodes)
+            (recur etc nil (conj transformed-nodes node))))
+        (flatten (into transformed-nodes fragment))))))
+
+(defn- transform-fragment [nodes [from-state to-state] transformation]
   (if (= identity transformation)
     nodes
     (let [transformation (or transformation (constantly nil))]
-      (flatmap #(transform-loc (xml/xml-zip %) state transformation) nodes))))
+      (flatten (transform-fragment-locs (map xml/xml-zip nodes) 
+                 from-state to-state transformation)))))
+
+(defn transform [nodes selector transformation]
+  (cond
+    (= identity transformation)
+      nodes
+    (node-selector? selector)
+      (transform-node nodes selector transformation)
+    :else ;fragment
+      (transform-fragment nodes selector transformation)))
 
 (defn at* [nodes & rules]
   (reduce transform nodes (partition 2 rules)))
@@ -283,25 +346,63 @@
  [selector-step]
   (compile-step selector-step))
 
-(defmacro at [node & rules]
-  `(-> [~node] ~@(for [[s t] (partition 2 rules)] 
-                   `(transform [(selector ~s) ~t]))))
+(defmacro at [node-or-nodes & rules]
+  `(-> ~node-or-nodes as-nodes ~@(for [[s t] (partition 2 rules)]
+                                   `(transform (selector ~s) ~t))))
 
-(defn zip-select* [locs state]
-  (let [select1 
-         (fn select1 [loc previous-state] 
-           (let [state (sm/step previous-state loc)]
-             (concat (when (sm/accept? state) (list loc))
-               (mapcat #(select1 % state) (children-locs loc)))))]
+(defn zip-select-nodes* [locs state]
+  (letfn [(select1 [loc previous-state] 
+            (let [state (sm/step previous-state loc)
+                  descendants (mapcat #(select1 % state) (children-locs loc))]
+              (if (sm/accept? state) (cons loc descendants) descendants)))]
     (mapcat #(select1 % state) locs)))
       
-(defn select* [nodes state]
-  (map z/node (zip-select* (map xml/xml-zip nodes) state))) 
+(defn select-nodes* [nodes selector]
+  (let [[state] selector]
+    (map z/node (zip-select-nodes* (map xml/xml-zip nodes) state)))) 
+      
+(defn zip-select-fragments* [locs state-from state-to]
+  (letfn [(select1 [locs previous-state-from previous-state-to] 
+            (let [states-from (map #(sm/step previous-state-from %) locs)
+                  states-to (map #(sm/step previous-state-to %) locs)
+                  descendants (mapcat #(select1 (children-locs %1) %2 %3) 
+                                locs states-from states-to)]
+              (loop [fragments descendants fragment nil 
+                     locs locs states-from states-from states-to states-to]
+                (if-let [[loc & etc] (seq locs)]
+                  (if fragment
+                    (let [fragment (conj fragment loc)]
+                      (if (sm/accept? (first states-to))
+                        (recur (cons fragment fragments) nil etc 
+                          (rest states-from) (rest states-to))
+                        (recur fragments fragment etc 
+                          (rest states-from) (rest states-to))))
+                    (if (sm/accept? (first states-from))
+                      (recur fragments [] locs states-from states-to)
+                      (recur fragments nil etc 
+                        (rest states-from) (rest states-to))))
+                  fragments))))]
+    (select1 locs state-from state-to)))
+      
+(defn select-fragments* [nodes selector]
+  (let [[state-from state-to] selector]
+    (map #(map z/node %) 
+      (zip-select-fragments* (map xml/xml-zip nodes) state-from state-to)))) 
+
+(defn select* [nodes selector]
+  (if (node-selector? selector)
+    (select-nodes* nodes selector) 
+    (select-fragments* nodes selector)))
+      
+(defn zip-select* [locs selector]
+  (if (node-selector? selector)
+    (apply zip-select-nodes* locs selector) 
+    (apply zip-select-fragments* locs selector)))
       
 (defmacro select
- "Returns the seq of nodes and sub-nodes matched by the specified selector."
- [nodes selector]
-  `(select* ~nodes (selector ~selector)))
+ "Returns the seq of nodes or fragments matched by the specified selector."
+ [node-or-nodes selector]
+  `(select* (as-nodes ~node-or-nodes) (selector ~selector)))
 
 (defmacro zip-select
  "Returns the seq of locs matched by the specified selector."
@@ -309,11 +410,10 @@
   `(zip-select* ~locs (selector ~selector)))
 
 ;; main macros
-
 (defmacro transformation
  ([] `identity)
  ([form] form)
- ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
+ ([form & forms] `(fn [node#] node# (at node# ~form ~@forms))))
 
 (defmacro snippet* [nodes args & forms]
   `(let [nodes# (map annotate ~nodes)]
@@ -350,7 +450,7 @@
 ;; transformations
 
 (defn content
- "Replaces the content of the node. Values can be nodes or nested collection of nodes." 
+ "Replaces the content of the element. Values can be nodes or nested collection of nodes." 
  [& values]
   #(assoc % :content (flatten values)))
 
@@ -361,7 +461,7 @@
     java.io.StringReader. html-resource first :content))
   
 (defn html-content
- "Replaces the content of the node. Values are strings containing html code."
+ "Replaces the content of the element. Values are strings containing html code."
  [& values]
   #(assoc % :content (apply html-snippet values))) 
 
@@ -373,23 +473,23 @@
 (def unwrap :content)
 
 (defn set-attr
- "Assocs attributes on the selected node."
+ "Assocs attributes on the selected element."
  [& kvs]
   #(assoc % :attrs (apply assoc (:attrs % {}) kvs)))
      
 (defn remove-attr 
- "Dissocs attributes on the selected node."
+ "Dissocs attributes on the selected element."
  [& attr-names]
   #(assoc % :attrs (apply dissoc (:attrs %) attr-names)))
     
 (defn add-class
- "Adds the specified classes to the selected node." 
+ "Adds the specified classes to the selected element." 
  [& classes]
   #(let [classes (into (attr-values % :class) classes)]
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
 
 (defn remove-class 
- "Removes the specified classes from the selected node." 
+ "Removes the specified classes from the selected element." 
  [& classes]
   #(let [classes (apply disj (attr-values % :class) classes)
          attrs (:attrs %)
@@ -401,7 +501,7 @@
 (defn do->
  "Chains (composes) several transformations. Applies functions from left to right." 
  [& fns]
-  #(reduce (fn [nodes f] (flatmap f nodes)) [%] fns))
+  #(reduce (fn [nodes f] (flatmap f nodes)) (as-nodes %) fns))
 
 (defmacro clone-for
  [comprehension & forms]
@@ -409,27 +509,27 @@
      (for ~comprehension ((transformation ~@forms) node#))))
 
 (defn append
- "Appends the values to the actual content."
+ "Appends the values to the content of the selected element."
  [& values]
   #(assoc % :content (concat (:content %) (flatten values)))) 
 
 (defn prepend
- "Prepends the values to the actual content."
+ "Prepends the values to the content of the selected element."
  [& values]
   #(assoc % :content (concat (flatten values) (:content %)))) 
 
 (defn after
- "Inserts the values after the current element."
+ "Inserts the values after the current selection (node or fragment)."
  [& values]
-  #(cons % (flatten values)))
+  #(flatten (cons % values)))
 
 (defn before
- "Inserts the values before the current element."
+ "Inserts the values before the current selection (node or fragment)."
  [& values]
-  #(concat (flatten values) [%]))
+  #(flatten (concat values [%])))
 
 (defn substitute
- "Replaces the current element."
+ "Replaces the current selection (node or fragment)."
  [& values]
  (constantly (flatten values)))
 
@@ -439,9 +539,9 @@
   By default, destination elements are replaced." 
  ([src-selector dest-selector] `(move ~src-selector ~dest-selector substitute))
  ([src-selector dest-selector combiner]
-  `(fn [node#]
-     (let [nodes# (select [node#] ~src-selector)]
-       (at node#
+  `(fn [node-or-nodes#]
+     (let [nodes# (select node-or-nodes# ~src-selector)]
+       (at node-or-nodes#
          ~src-selector nil
          ~dest-selector (apply ~combiner nodes#)))))) 
      
@@ -603,16 +703,22 @@
 
 (def even (nth-child 2 0))
 
-(defn- select? [nodes state]
-  (boolean (seq (select* nodes state))))
+(defn- select? [node-or-nodes selector]
+  (-> node-or-nodes as-nodes (select* selector) seq boolean))
 
-(defn has* [state]
-  (pred #(select? [%] state)))
+(defn has* [selector]
+  (let [selector (if (node-selector? selector)
+                   (node-selector (sm/chain any (first selector)))
+                   (fragment-selector (sm/chain any (first selector))
+                     (sm/chain any (second selector))))]
+    (pred #(select? % selector))))
+  
 
 (defmacro has
- "Selector predicate, matches elements which contain at least one element that matches the specified selector. See jQuery's :has" 
+ "Selector predicate, matches elements which contain at least one element that 
+  matches the specified selector. See jQuery's :has" 
  [selector]
-  `(has* (sm/chain any (selector ~selector))))
+  `(has* (selector ~selector)))
 
 (defmacro but-node
  "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not" 
@@ -624,39 +730,39 @@
  [selector-step]
   `(sm/intersection any (but-node ~selector-step)))
 
-(defn left* [state]
+(defn left* [selector]
  (sm/pred 
    #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
-      (select? [sibling] state))))
+      (select? sibling selector))))
 
 (defmacro left 
  [selector-step]
-  `(left* (selector-step ~selector-step)))
+  `(left* (selector [:> ~selector-step])))
 
-(defn lefts* [state]
+(defn lefts* [selector]
  (sm/pred 
-   #(select? (filter xml/tag? (z/lefts %)) state)))
+   #(select? (filter xml/tag? (z/lefts %)) selector)))
   
 (defmacro lefts
  [selector-step]
-  `(lefts* (selector-step ~selector-step)))
+  `(lefts* (selector [:> ~selector-step])))
 
-(defn right* [state]
+(defn right* [selector]
  (sm/pred 
    #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
-      (select? [sibling] state))))
+      (select? sibling selector))))
 
 (defmacro right 
  [selector-step]
-  `(right* (selector-step ~selector-step)))
+  `(right* (selector [:> ~selector-step])))
 
-(defn rights* [state]
+(defn rights* [selector]
  (sm/pred 
-   #(select? (filter xml/tag? (z/rights %)) state)))
+   #(select? (filter xml/tag? (z/rights %)) selector)))
   
 (defmacro rights 
  [selector-step]
-  `(rights* (selector-step ~selector-step)))
+  `(rights* (selector [:> ~selector-step])))
 
 (def any-node (sm/pred (constantly true)))
 

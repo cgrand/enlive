@@ -178,19 +178,47 @@
   (is-same "<!-- comment -->" (sniptest "<!-- comment -->" [:span] nil)))
   
 (set-test clone-for
+  ;; node selector
   (is-same "<ul><li>one<li>two" 
-    (sniptest "<ul><li>" [:li] (clone-for [x ["one" "two"]] (content x))))) 
+    (sniptest "<ul><li>" [:li] (clone-for [x ["one" "two"]] (content x))))
+  ;; fragment selector
+  (is-same "<dl><dt>term #1<dd>desc #1<dt>term #2<dd>desc #2"
+    (sniptest "<dl><dt>Sample term<dd>sample description" 
+      {[:dt] [:dd]} (clone-for [[t d] {"term #1" "desc #1" "term #2" "desc #2"}] 
+                      [:dt] (content t) 
+                      [:dd] (content d))))) 
 
 (set-test move
   (are (same? _2 
          (sniptest "<body><span>1</span><div id=target>here</div><span>2</span>" 
            (move [:span] [:div] _1) ))
-  substitute "<body><span>1</span><span>2</span>"
-  content "<body><div id=target><span>1</span><span>2</span></div>"
-  after "<body><div id=target>here</div><span>1</span><span>2</span>"
-  before "<body><span>1</span><span>2</span><div id=target>here</div>"
-  append "<body><div id=target>here<span>1</span><span>2</span></div>"
-  prepend "<body><div id=target><span>1</span><span>2</span>here</div>"))
+    substitute "<body><span>1</span><span>2</span>"
+    content "<body><div id=target><span>1</span><span>2</span></div>"
+    after "<body><div id=target>here</div><span>1</span><span>2</span>"
+    before "<body><span>1</span><span>2</span><div id=target>here</div>"
+    append "<body><div id=target>here<span>1</span><span>2</span></div>"
+    prepend "<body><div id=target><span>1</span><span>2</span>here</div>")
+  (are (same? _2 
+         (sniptest "<div><h1>Title1<p>blabla<hr><h2>Title2<p>blibli" 
+           (move {[:h1] [:p]} {[:h2] [:p]} _1) ))
+    substitute "<div><hr><h1>Title1<p>blabla"
+    after "<div><hr><h2>Title2<p>blibli<h1>Title1<p>blabla"
+    before "<div><hr><h1>Title1<p>blabla<h2>Title2<p>blibli")
+  (are (same? _2 
+         (sniptest "<div><h1>Title1<p>blabla<hr><h2>Title2<p>blibli" 
+           (move {[:h1] [:p]} [:h2] _1) ))
+    substitute "<div><hr><h1>Title1<p>blabla<p>blibli"
+    content "<div><hr><h2><h1>Title1</h1><p>blabla</p></h2><p>blibli"
+    after "<div><hr><h2>Title2<h1>Title1<p>blabla<p>blibli"
+    before "<div><hr><h1>Title1<p>blabla<h2>Title2<p>blibli"
+    append "<div><hr><h2>Title2<h1>Title1</h1><p>blabla</p></h2><p>blibli"
+    prepend "<div><hr><h2><h1>Title1</h1><p>blabla</p>Title2</h2><p>blibli")
+  (are (same? _2 
+         (sniptest "<div><h1>Title1<p>blabla<hr><h2>Title2<p>blibli" 
+           (move [:h1] {[:h2] [:p]} _1) ))
+    substitute "<div><p>blabla<hr><h1>Title1"
+    after "<div><p>blabla<hr><h2>Title2<p>blibli<h1>Title1"
+    before "<div><p>blabla<hr><h1>Title1<h2>Title2<p>blibli"))
   
 (set-test select 
   (is (= 3 (-> "<html><body><h1>hello</h1>" html-snippet (select [:*]) count))))

@@ -12,6 +12,8 @@ h2. Where do I get support?
 
 h2. What's new in Enlive?
 
+Fragment selectors allow to select adjacent nodes. They are denoted by a map of two node selectors (eg @{[:h1] [:p]}@), bounds are inclusive and they select the smallest matching fragments.   
+
 Transformations (the right-hand parts of rules) are now plain old closures. These functions take one arg (the selected node) and return nil, another node or an arbitrarily nested collection of nodes.
 
 Rules are applied top-down: the first rule transforms the whole tree and the resulting tree is passed to the next rules.
@@ -54,7 +56,7 @@ Rules are applied top-down: the first rule transforms the whole tree and the res
 
 h2. Selectors
 
-Enlive enforces (in @select*@ and @transform-loc@) that selectors can only match elements.   
+Enlive selectors can match either nodes or fragments (several adjacent nodes).   
 
 h3. Syntax
 
@@ -70,6 +72,10 @@ Some examples:
   #{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
   [#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
   [[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
+  [:div :> :*]                                 div > *
+  [:div :> text-node]                          (text children of a div) 
+  [:div :> any-node]                           (all children (including text nodes and comments) of a div)
+  {[:dt] [:dl]}                                (fragments starting by DT and ending at the *next* DD)    
 </pre>
 
 h3. Compilation
@@ -78,13 +84,15 @@ At macroexpansion-time in @select@, @snippet@ and @at@ macros, selectors are com
 
 <pre>
   net.cgrand.enlive-html=> (compile-selector '[:div])
-  (chain descendants-or-self (tag= :div))
+  (node-selector (chain descendants-or-self (tag= :div)))
   net.cgrand.enlive-html=> (compile-selector '[:body :script])
-  (chain descendants-or-self (tag= :body) descendants-or-self (tag= :script))
+  (node-selector (chain descendants-or-self (tag= :body) descendants-or-self (tag= :script)))
   net.cgrand.enlive-html=> (compile-selector '[#{:ul.outline :ol.outline} :> :li])
-  (chain descendants-or-self (union (intersection (tag= :ol) (has-class "outline")) (intersection (tag= :ul) (has-class "outline"))) (tag= :li))
+  (node-selector (chain descendants-or-self (union (intersection (tag= :ol) (has-class "outline")) (intersection (tag= :ul) (has-class "outline"))) (tag= :li)))
   net.cgrand.enlive-html=> (compile-selector '[[:div (attr= :title "foobar")]])
-  (chain descendants-or-self (intersection (tag= :div) (attr= :title "foobar")))
+  (node-selector (chain descendants-or-self (intersection (tag= :div) (attr= :title "foobar"))))
+  net.cgrand.enlive-html=> (compile-selector '{[:h1] [:p]})
+  (fragment-selector (chain descendants-or-self (tag= :h1)) (chain descendants-or-self (tag= :p)))
 </pre>
 
 @(compile-selector '[:div])@ is equivalent to @(macroexpand-1 '(selector [:div]))@.

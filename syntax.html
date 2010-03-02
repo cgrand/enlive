@@ -14,8 +14,11 @@
 <h1><a href="http://github.com/cgrand/enlive/">Enlive</a> selectors syntax</h1>
 <dl class="syntax">
 <dt id="selector"><a href="#selector">selector</a></dt>
+    <dd><a href="#node-selector">node-selector</a></dd>
+    <dd><code>{</code><a href="#node-selector">node-selector</a> <a href="#node-selector">node-selector</a><code>}</code> ; fragment selector {from to}</dd>
+<dt id="node-selector"><a href="#node-selector">node-selector</a></dt>
 	<dd><code>[</code></code><a href="#selector-step">selector-step</a> (<code>:></code>? </code><a href="#selector-step">selector-step</a>)*<code>]</code></dd>
-	<dd><code>#{</code><a href="#selector">selector</a>*<code>}</code> ; grouping</dd>
+	<dd><code>#{</code><a href="#node-selector">node-selector</a>*<code>}</code> ; grouping</dd>
 	<dd><code>a-symbol</code> ; must evaluate to a state-machine</dd>
 	<dd><code>(some clojure code)</code> ; must evaluate to a state-machine</dd>
 <dt id="selector-step"><a href="#selector-step">selector-step</a></dt>
