@@ -271,7 +271,11 @@
     (let [[from to] (first s)]
       `(fragment-selector ~(compile-node-selector from) 
          ~(compile-node-selector to)))
-    `(node-selector ~(compile-node-selector s))))
+    (let [c (compile-node-selector s)]
+      (if (= c s)
+        s
+        `(node-selector ~c)))))
+      
 
 ;; core 
   
