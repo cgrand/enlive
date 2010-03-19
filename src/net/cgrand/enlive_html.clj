@@ -185,16 +185,25 @@
       
 ;; utilities
 
-(defn- not-node? [x]
-  (not (or (string? x) (map? x))))
+(defn- node? [x]
+  (or (string? x) (map? x)))
 
 (defn as-nodes [node-or-nodes]
-  (if (not-node? node-or-nodes)
-    node-or-nodes
-    [node-or-nodes]))
+  (if (node? node-or-nodes)
+    [node-or-nodes] 
+    node-or-nodes))
     
 (defn- flatten [x]
-  (remove not-node? (tree-seq not-node? seq x)))
+  (letfn [(flat* [x stack]
+            (if (node? x) 
+              (cons x (when (seq stack) (flat (peek stack) (pop stack))))
+              (if-let [[x & xs] (seq x)]
+                (recur x (conj stack xs))
+                (when (seq stack)
+                  (recur (peek stack) (pop stack))))))
+          (flat [x stack]
+            (lazy-seq (flat* x stack)))]
+    (flat x ())))
 
 (defn flatmap [f node-or-nodes]
   (flatten (map f (as-nodes node-or-nodes))))
