@@ -337,9 +337,6 @@
     :else ;fragment
       (transform-fragment nodes selector transformation)))
 
-(defn at* [nodes & rules]
-  (reduce transform nodes (partition 2 rules)))
-
 (defmacro selector
  "Turns the selector into clojure code." 
  [selector]
