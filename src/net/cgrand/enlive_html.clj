@@ -200,9 +200,10 @@
   (flatten (map f (as-nodes node-or-nodes))))
 
 (defn attr-values 
- "Returns the whitespace-separated values of the specified attr as a set."
+ "Returns the whitespace-separated values of the specified attr as a set or nil."
  [node attr]
-  (disj (set (-> node :attrs (attr "") str (.split "\\s+"))) ""))
+  (when-let [v (-> node :attrs (get attr))]
+    (set (re-seq #"\S+" v))))
 
 ;; selector syntax
 (defn- simplify-associative [[op & forms]]
@@ -487,13 +488,14 @@
 (defn add-class
  "Adds the specified classes to the selected element." 
  [& classes]
-  #(let [classes (into (attr-values % :class) classes)]
+  #(let [classes (into (or (attr-values % :class) #{}) classes)]
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
 
 (defn remove-class 
  "Removes the specified classes from the selected element." 
  [& classes]
-  #(let [classes (apply disj (attr-values % :class) classes)
+  #(let [classes (when-let [cl (attr-values % :class)] 
+                   (reduce disj cl classes)) 
          attrs (:attrs %)
          attrs (if (empty? classes) 
                  (dissoc attrs :class) 
@@ -620,7 +622,7 @@
 (defn attr-has
  "Selector predicate, tests if the specified whitespace-seperated attribute contains the specified values. See CSS ~="
  [attr & values]
-  (pred #(every? (attr-values % attr) values)))
+  (pred #(when-let [v (attr-values % attr)] (every? v values))))
  
 (defn has-class 
  "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
