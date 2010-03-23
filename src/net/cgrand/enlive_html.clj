@@ -225,6 +225,8 @@
     pred
     (fn [x] (some #(% x) preds))))
 
+(declare has-class id= tag= any)
+
 (def #^{:private true} compile-keyword 
   (memoize 
     (fn [kw]
@@ -241,7 +243,7 @@
                               (if (= \# x)
                                 (conj preds (id= (subs segment 1)))
                                 preds)) preds segments)]
-         (intersection preds))))))
+         (if (seq preds) (intersection preds) any))))))
     
 (defn- compile-step [step]
   (cond
@@ -349,10 +351,11 @@
             (recur etc nil (conj transformed-nodes node))))
         (flatten (into transformed-nodes fragment))))))
 
-(defn- transform-fragment [nodes [[from-selector to-selector]] transformation]
+(defn- transform-fragment [nodes selector transformation]
   (if (= identity transformation)
     nodes
-    (let [transformation (or transformation (constantly nil))]
+    (let [[from-selector to-selector] (first selector)
+          transformation (or transformation (constantly nil))]
       (flatten (transform-fragment-locs (map xml/xml-zip nodes) 
                  (automaton from-selector) (automaton to-selector) 
                  transformation)))))
@@ -366,19 +369,13 @@
     :else ;fragment
       (transform-fragment nodes selector transformation)))
 
-(defmacro selector
- "Turns the selector into clojure code." 
- [selector]
-  selector)
-
-(defmacro selector-step
- "Turns the selector step into clojure code."
- [selector-step]
-  selector-step)
+(defn at* [node-or-nodes rules]
+  (reduce (fn [nodes [s t]] (transform nodes s t))
+    (as-nodes node-or-nodes) rules))
 
 (defmacro at [node-or-nodes & rules]
   `(-> ~node-or-nodes as-nodes ~@(for [[s t] (partition 2 rules)]
-                                   `(transform (selector ~s) ~t))))
+                                   `(transform ~s~t))))
 
 (defn zip-select-nodes* [locs state]
   (letfn [(select1 [loc previous-state] 
@@ -416,31 +413,27 @@
     (select1 locs state-from state-to)))
       
 (defn select-fragments* [nodes selector]
-  (let [[[selector-from selector-to]] selector
+  (let [[selector-from selector-to] (first selector) 
         state-from (automaton selector-from)
         state-to (automaton selector-to)]
     (map #(map z/node %) 
       (zip-select-fragments* (map xml/xml-zip nodes) state-from state-to)))) 
 
-(defn select* [nodes selector]
-  (if (node-selector? selector)
-    (select-nodes* nodes selector) 
-    (select-fragments* nodes selector)))
-      
-(defn zip-select* [locs selector]
+(defn select
+ "Returns the seq of nodes or fragments matched by the specified selector."
+ [node-or-nodes selector]
+  (let [nodes (as-nodes node-or-nodes)]
+    (if (node-selector? selector)
+      (select-nodes* nodes selector) 
+      (select-fragments* nodes selector))))
+  
+(defn zip-select 
+ "Returns the seq of locs matched by the specified selector."
+ [locs selector]
   (if (node-selector? selector)
     (apply zip-select-nodes* locs selector) 
     (apply zip-select-fragments* locs selector)))
       
-(defmacro select
- "Returns the seq of nodes or fragments matched by the specified selector."
- [node-or-nodes selector]
-  `(select* (as-nodes ~node-or-nodes) (selector ~selector)))
-
-(defmacro zip-select
- "Returns the seq of locs matched by the specified selector."
- [locs selector]
-  `(zip-select* ~locs (selector ~selector)))
 
 ;; main macros
 (defmacro transformation
@@ -567,17 +560,17 @@
  [& values]
  (constantly (flatten values)))
 
-(defmacro move
+(defn move
  "Takes all nodes (under the current element) matched by src-selector, removes
   them and combines them with the elements matched by dest-selector.
   By default, destination elements are replaced." 
- ([src-selector dest-selector] `(move ~src-selector ~dest-selector substitute))
+ ([src-selector dest-selector] (move src-selector dest-selector substitute))
  ([src-selector dest-selector combiner]
-  `(fn [node-or-nodes#]
-     (let [nodes# (select node-or-nodes# ~src-selector)]
-       (at node-or-nodes#
-         ~src-selector nil
-         ~dest-selector (apply ~combiner nodes#)))))) 
+  (fn [node-or-nodes]
+    (let [nodes (select node-or-nodes src-selector)]
+      (at node-or-nodes
+        src-selector nil
+        dest-selector (apply combiner nodes)))))) 
      
 (defn strict-mode* [node]
   (if (xml/tag? node)
@@ -734,9 +727,9 @@
       
 (def last-of-type (nth-last-of-type 1))      
 
-(def only-child (sm/intersection first-child last-child))  
+(def only-child (intersection [first-child last-child]))  
 
-(def only-of-type (sm/intersection first-of-type last-of-type))
+(def only-of-type (intersection [first-of-type last-of-type]))
 
 (def void (pred #(empty? (remove empty? (:content %)))))
 
@@ -745,62 +738,42 @@
 (def even (nth-child 2 0))
 
 (defn- select? [node-or-nodes selector]
-  (-> node-or-nodes as-nodes (select* selector) seq boolean))
+  (-> node-or-nodes as-nodes (select selector) seq boolean))
 
-(defn has* [selector]
-  (let [selector (if (node-selector? selector)
-                   (node-selector (sm/chain any (first selector)))
-                   (fragment-selector (sm/chain any (first selector))
-                     (sm/chain any (second selector))))]
-    (pred #(select? % selector))))
-  
-
-(defmacro has
+(defn has 
  "Selector predicate, matches elements which contain at least one element that 
   matches the specified selector. See jQuery's :has" 
  [selector]
-  `(has* (selector ~selector)))
-
-(defmacro but-node
+  (pred #(select? (:content %) selector)))
+  
+(defn but-node
  "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not" 
  [selector-step]
-  `(sm/complement1 (selector-step ~selector-step)))
+  (complement (compile-step selector-step)))
 
-(defmacro but
+(defn but
  "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
  [selector-step]
-  `(sm/intersection any (but-node ~selector-step)))
+  (intersection [any (but-node selector-step)]))
 
-(defn left* [selector]
-  #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
-     (select? sibling selector)))
+(defn left [selector-step]
+  (let [selector [:> selector-step]]
+    #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
+       (select? sibling selector))))
 
-(defmacro left 
- [selector-step]
-  `(left* (selector [:> ~selector-step])))
-
-(defn lefts* [selector]
-  #(select? (filter xml/tag? (z/lefts %)) selector))
+(defn lefts [selector-step]
+  (let [selector [:> selector-step]]
+    #(select? (filter xml/tag? (z/lefts %)) selector)))
   
-(defmacro lefts
- [selector-step]
-  `(lefts* (selector [:> ~selector-step])))
+(defn right [selector-step]
+  (let [selector [:> selector-step]]
+    #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
+       (select? sibling selector))))
 
-(defn right* [selector]
-  #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
-     (select? sibling selector)))
-
-(defmacro right 
- [selector-step]
-  `(right* (selector [:> ~selector-step])))
-
-(defn rights* [selector]
-  #(select? (filter xml/tag? (z/rights %)) selector))
+(defn rights [selector-step]
+  (let [selector [:> selector-step]]
+    #(select? (filter xml/tag? (z/rights %)) selector)))
   
-(defmacro rights 
- [selector-step]
-  `(rights* (selector [:> ~selector-step])))
-
 (def any-node (constantly true))
 
 (def text-node #(string? (z/node %)))

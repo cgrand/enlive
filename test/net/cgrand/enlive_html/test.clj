@@ -29,8 +29,8 @@
  [& forms]
  `(is (same? ~@forms)))
 
-(defn- test-step [expected state node]
-  (= expected (boolean (sm/accept? (sm/step state (xml/xml-zip node))))))
+(defn- test-step [expected pred node]
+  (= expected (boolean (pred (xml/xml-zip node)))))
 
 (defn- elt 
  ([tag] (elt tag nil))
@@ -40,14 +40,6 @@
     :content content}))
 
 
-
-(set-test compile-step
-  (are (= _2 (compile-step _1))
-    :foo `(tag= :foo)
-    :* `any
-    :#id `(id= "id")
-    :.class1 `(has-class "class1")
-    :foo#bar.baz1.baz2 `(sm/intersection (tag= :foo) (id= "bar") (has-class "baz1" "baz2"))))
 
 (set-test tag=
   (are (test-step _1 _2 _3)
