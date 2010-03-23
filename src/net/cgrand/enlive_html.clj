@@ -215,77 +215,94 @@
     (set (re-seq #"\S+" v))))
 
 ;; selector syntax
-(defn- simplify-associative [[op & forms]]
-  (if (next forms)
-    (cons op (mapcat #(if (and (seq? %) (= op (first %))) (rest %) (list %)) forms)) 
-    (first forms)))
+(defn- intersection [preds]
+  (if-let [pred (when-not (next preds) (first preds))]
+    pred
+    (fn [x] (every? #(% x) preds))))
 
-(defn- emit-union [forms]
-  (simplify-associative (cons `sm/union forms)))
+(defn- union [preds]
+  (if-let [pred (when-not (next preds) (first preds))]
+    pred
+    (fn [x] (some #(% x) preds))))
 
-(defn- emit-intersection [forms]
-  (simplify-associative (cons `sm/intersection forms)))
-
-(defn- emit-chain [forms]
-  (simplify-associative (cons `sm/chain forms)))
-
-(defmulti compile-step type)
-
-(defmethod compile-step clojure.lang.Keyword [kw]
-  (let [[[first-letter :as tag-name] :as segments] (.split (name kw) "(?=[#.])")
-        tag-pred (when-not (contains? #{nil \* \# \.} first-letter) [`(tag= ~(keyword tag-name))])
-        ids-pred (for [s segments :when (= \# (first s))] `(id= ~(subs s 1)))
-        classes (set (for [s segments :when (= \. (first s))] (subs s 1)))
-        class-pred (when (seq classes) [`(has-class ~@classes)])
-        all-preds (concat tag-pred ids-pred class-pred)] 
-    (emit-intersection (or (seq all-preds) [`any]))))
+(def #^{:private true} compile-keyword 
+  (memoize 
+    (fn [kw]
+      (if (= :> kw)
+        :>
+        (let [[[first-letter :as tag-name] :as segments] 
+                (.split (name kw) "(?=[#.])")
+              classes (for [s segments :when (= \. (first s))] (subs s 1))
+              preds (when (seq classes) (list (apply has-class classes)))
+              preds (if (contains? #{nil \* \# \.} first-letter)
+                      preds
+                      (conj preds (tag= (keyword tag-name))))
+              preds (reduce (fn [preds [x :as segment]]
+                              (if (= \# x)
+                                (conj preds (id= (subs segment 1)))
+                                preds)) preds segments)]
+         (intersection preds))))))
     
-(defmethod compile-step clojure.lang.IPersistentSet [s]
-  (emit-union (map compile-step s)))      
-    
-(defmethod compile-step clojure.lang.IPersistentVector [s]
-  (emit-intersection (map compile-step s)))      
-
-(defmethod compile-step :default [s] s)
-
-(defn- compile-chain [s]
-  (let [[child-ops [step & next-steps :as steps]] (split-with #{:>} s)
-        next-chain (when (seq steps)
-                     (if (seq next-steps)
-                       (emit-chain [(compile-step step) (compile-chain next-steps)])
-                       (compile-step step)))]
-    (if (seq child-ops)
-      next-chain      
-      (emit-chain [`sm/descendants-or-self next-chain])))) 
-
-(defn- compile-node-selector [s]
+(defn- compile-step [step]
   (cond
-    (set? s) (emit-union (map compile-node-selector s))
-    (vector? s) (compile-chain s)
-    :else s))
+    (keyword? step) (compile-keyword step)  
+    (set? step) (union (map compile-step step))
+    (vector? step) (intersection (map compile-step step))
+    :else step))      
+    
+(defn- compile-chain [chain]
+  (map compile-step chain))
 
-(defn node-selector [state]
-  (with-meta [state] {:type ::node-selector}))
+(defn- selector-chains [selector]
+  (for [x (tree-seq set? seq selector) :when (not (set? x))]
+    (compile-chain x)))
 
-(defn node-selector? [selector]
-  (= ::node-selector (type selector)))
+(defn- predset [preds]
+  #(loop [i 1 r 0 preds (seq preds)]
+     (if-let [[pred & preds] preds]
+       (recur (bit-shift-left i 1) (if (pred %) (+ i r) r) preds)
+       r)))
 
-(defn fragment-selector [from to]
-  (with-meta [from to] {:type ::fragment-selector}))
+(defn- states [init chains-seq]
+  (fn [#^Number n]
+    (loop [n n s (set init) [chains & etc] chains-seq]
+      (cond
+        (odd? n) (recur (bit-shift-right n 1) (into s chains) etc) 
+        (zero? n) s
+        :else (recur (bit-shift-right n 1) s etc)))))
+
+(defn make-state [chains make-state]
+  (let [derivations 
+          (reduce
+            (fn [derivations chain]
+              (cond
+                (= :> (first chain))
+                  (let [pred (second chain)]
+                    (assoc derivations pred (conj (derivations pred) (nnext chain))))
+                (seq chain)
+                  (let [pred (first chain)]
+                    (-> derivations
+                      (assoc nil (conj (derivations nil) chain)) 
+                      (assoc pred (conj (derivations pred) (next chain)))))
+                :else
+                  (assoc derivations :accepts true))) {} chains)
+        always (derivations nil)
+        accepts (derivations :accepts)
+        derivations (dissoc derivations nil :accepts)
+        ps (predset (keys derivations))
+        next-states (memoize (states always (vals derivations)))]
+    (sm/state accepts (when (seq chains) 
+                        #(-> % ps next-states (make-state make-state))))))
+
+(defn automaton [selector]
+  (let [mms (memoize make-state)]
+    (mms (-> selector selector-chains set) mms)))
 
 (defn fragment-selector? [selector]
-  (= ::fragment-selector (type selector)))
+  (map? selector))
 
-(defn compile-selector [s]
-  (if (map? s)
-    (let [[from to] (first s)]
-      `(fragment-selector ~(compile-node-selector from) 
-         ~(compile-node-selector to)))
-    (let [c (compile-node-selector s)]
-      (if (= c s)
-        s
-        `(node-selector ~c)))))
-      
+(defn node-selector? [selector]
+  (not (fragment-selector? selector)))
 
 ;; core 
   
@@ -302,8 +319,9 @@
       (transformation node)
       node)))
 
-(defn- transform-node [nodes [state] transformation]
-  (let [transformation (or transformation (constantly nil))]
+(defn- transform-node [nodes selector transformation]
+  (let [transformation (or transformation (constantly nil))
+        state (automaton selector)]
     (flatmap #(transform-loc (xml/xml-zip %) state transformation) nodes)))
 
 (defn- transform-fragment-locs [locs from-state to-state transformation]
@@ -331,12 +349,13 @@
             (recur etc nil (conj transformed-nodes node))))
         (flatten (into transformed-nodes fragment))))))
 
-(defn- transform-fragment [nodes [from-state to-state] transformation]
+(defn- transform-fragment [nodes [[from-selector to-selector]] transformation]
   (if (= identity transformation)
     nodes
     (let [transformation (or transformation (constantly nil))]
       (flatten (transform-fragment-locs (map xml/xml-zip nodes) 
-                 from-state to-state transformation)))))
+                 (automaton from-selector) (automaton to-selector) 
+                 transformation)))))
 
 (defn transform [nodes selector transformation]
   (cond
@@ -350,12 +369,12 @@
 (defmacro selector
  "Turns the selector into clojure code." 
  [selector]
-  (compile-selector selector))
+  selector)
 
 (defmacro selector-step
- "Turns the selector step into clojure code." 
+ "Turns the selector step into clojure code."
  [selector-step]
-  (compile-step selector-step))
+  selector-step)
 
 (defmacro at [node-or-nodes & rules]
   `(-> ~node-or-nodes as-nodes ~@(for [[s t] (partition 2 rules)]
@@ -369,7 +388,7 @@
     (mapcat #(select1 % state) locs)))
       
 (defn select-nodes* [nodes selector]
-  (let [[state] selector]
+  (let [state (automaton selector)]
     (map z/node (zip-select-nodes* (map xml/xml-zip nodes) state)))) 
       
 (defn zip-select-fragments* [locs state-from state-to]
@@ -397,7 +416,9 @@
     (select1 locs state-from state-to)))
       
 (defn select-fragments* [nodes selector]
-  (let [[state-from state-to] selector]
+  (let [[[selector-from selector-to]] selector
+        state-from (automaton selector-from)
+        state-to (automaton selector-to)]
     (map #(map z/node %) 
       (zip-select-fragments* (map xml/xml-zip nodes) state-from state-to)))) 
 
@@ -576,7 +597,7 @@
 (defn zip-pred 
  "Turns a predicate function on elements locs into a predicate-step usable in selectors."
  [f]
-  (sm/pred #(and (z/branch? %) (f %))))
+  #(and (z/branch? %) (f %)))
 
 (defn pred 
  "Turns a predicate function on elements into a predicate-step usable in selectors."
@@ -586,7 +607,7 @@
 (defn text-pred 
  "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
  [f]
-  (sm/pred #(let [n (z/node %)] (and (string? n) (f n)))))
+  #(let [n (z/node %)] (and (string? n) (f n))))
 
 (defn re-pred 
  "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
@@ -751,44 +772,40 @@
   `(sm/intersection any (but-node ~selector-step)))
 
 (defn left* [selector]
- (sm/pred 
-   #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
-      (select? sibling selector))))
+  #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
+     (select? sibling selector)))
 
 (defmacro left 
  [selector-step]
   `(left* (selector [:> ~selector-step])))
 
 (defn lefts* [selector]
- (sm/pred 
-   #(select? (filter xml/tag? (z/lefts %)) selector)))
+  #(select? (filter xml/tag? (z/lefts %)) selector))
   
 (defmacro lefts
  [selector-step]
   `(lefts* (selector [:> ~selector-step])))
 
 (defn right* [selector]
- (sm/pred 
-   #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
-      (select? sibling selector))))
+  #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
+     (select? sibling selector)))
 
 (defmacro right 
  [selector-step]
   `(right* (selector [:> ~selector-step])))
 
 (defn rights* [selector]
- (sm/pred 
-   #(select? (filter xml/tag? (z/rights %)) selector)))
+  #(select? (filter xml/tag? (z/rights %)) selector))
   
 (defmacro rights 
  [selector-step]
   `(rights* (selector [:> ~selector-step])))
 
-(def any-node (sm/pred (constantly true)))
+(def any-node (constantly true))
 
-(def text-node (sm/pred #(string? (z/node %))))
+(def text-node #(string? (z/node %)))
 
-(def comment-node (sm/pred #(xml/comment? (z/node %))))
+(def comment-node #(xml/comment? (z/node %)))
 
 ;; screen-scraping utils
 (defn text
