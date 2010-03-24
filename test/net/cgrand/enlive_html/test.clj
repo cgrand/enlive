@@ -12,7 +12,6 @@
   (:use net.cgrand.enlive-html)
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z])
-  (:require [net.cgrand.enlive-html.state-machine :as sm])
   (:use [clojure.contrib.test-is :as test-is :only [set-test is are]]))
 
 ;; test utilities
