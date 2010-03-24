@@ -4,6 +4,7 @@ Enlive is a selector-based (à la CSS) templating library for Clojure.
 
 An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
 
+David Nolen wrote a "nice tutorial":http://github.com/swannodette/enlive-tutorial/
 
 h2. Where do I get support?
 
