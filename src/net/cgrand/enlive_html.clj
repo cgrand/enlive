@@ -340,9 +340,17 @@
     [accepts (when (seq chains) 
                #(-> % ps next-states (make-state make-state)))]))
 
-(defn- automaton [selector]
+(defn cacheable [selector] (vary-meta selector assoc ::cacheable true))
+(defn cacheable? [selector] (-> selector meta ::cacheable))
+
+(defn- automaton* [selector]
   (let [mms (memoize make-state)]
     (mms (-> selector selector-chains set) mms)))
+
+(def #^{:private true} memoized-automaton* (memoize automaton*))
+    
+(defn- automaton [selector]
+  ((if (cacheable? selector) memoized-automaton* automaton*) selector))
 
 (defn- accept? [s] (nth s 0))
 (defn- step [s x] (when-let [f (and s (nth s 1))] (f x)))
@@ -352,6 +360,10 @@
 
 (defn node-selector? [selector]
   (not (fragment-selector? selector)))
+
+(defn- static-selector? [selector]
+  (or (keyword? selector) 
+    (and (coll? selector) (every? static-selector? selector))))
 
 ;; core 
   
@@ -421,8 +433,9 @@
     (as-nodes node-or-nodes) rules))
 
 (defmacro at [node-or-nodes & rules]
-  `(-> ~node-or-nodes as-nodes ~@(for [[s t] (partition 2 rules)]
-                                   `(transform ~s~t))))
+  `(-> ~node-or-nodes as-nodes 
+     ~@(for [[s t] (partition 2 rules)]
+         `(transform ~(if (static-selector? s) (cacheable s) s) ~t))))
 
 (defn zip-select-nodes* [locs state]
   (letfn [(select1 [loc previous-state] 
