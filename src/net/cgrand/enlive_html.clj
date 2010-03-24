@@ -214,17 +214,62 @@
     (set (re-seq #"\S+" v))))
 
 ;; selector syntax
-(defn- intersection [preds]
+(defn intersection [preds]
   (if-let [pred (when-not (next preds) (first preds))]
     pred
     (fn [x] (every? #(% x) preds))))
 
-(defn- union [preds]
+(defn union [preds]
   (if-let [pred (when-not (next preds) (first preds))]
     pred
     (fn [x] (some #(% x) preds))))
 
-(declare has-class id= tag= any)
+;; predicates utils
+(defn zip-pred 
+ "Turns a predicate function on elements locs into a predicate-step usable in selectors."
+ [f]
+  #(and (z/branch? %) (f %)))
+
+(defn pred 
+ "Turns a predicate function on elements into a predicate-step usable in selectors."
+ [f]
+  (zip-pred #(f (z/node %))))
+
+(defn text-pred 
+ "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
+ [f]
+  #(let [n (z/node %)] (and (string? n) (f n))))
+
+(defn re-pred 
+ "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
+ [re]
+  (text-pred #(re-matches re %)))
+
+(def whitespace (re-pred #"\s*"))
+
+;; core predicates
+(def any (pred (constantly true)))
+
+(defn tag= 
+ "Selector predicate, :foo is as short-hand for (tag= :foo)."
+ [tag-name]
+  (pred #(= (:tag %) tag-name)))
+
+(defn id=
+ "Selector predicate, :#foo is as short-hand for (id= \"foo\")."
+ [id]
+  (pred #(= (-> % :attrs :id) id)))
+
+(defn attr-has
+ "Selector predicate, tests if the specified whitespace-seperated attribute contains the specified values. See CSS ~="
+ [attr & values]
+  (pred #(when-let [v (attr-values % attr)] (every? v values))))
+ 
+(defn has-class 
+ "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
+ [& classes]
+  (apply attr-has :class classes))
+   
 
 (def #^{:private true} compile-keyword 
   (memoize 
@@ -272,7 +317,7 @@
         (zero? n) s
         :else (recur (bit-shift-right n 1) s etc)))))
 
-(defn make-state [chains make-state]
+(defn- make-state [chains make-state]
   (let [derivations 
           (reduce
             (fn [derivations chain]
@@ -295,12 +340,12 @@
     [accepts (when (seq chains) 
                #(-> % ps next-states (make-state make-state)))]))
 
-(defn automaton [selector]
+(defn- automaton [selector]
   (let [mms (memoize make-state)]
     (mms (-> selector selector-chains set) mms)))
 
-(defn accept? [s] (nth s 0))
-(defn step [s x] (when-let [f (and s (nth s 1))] (f x)))
+(defn- accept? [s] (nth s 0))
+(defn- step [s x] (when-let [f (and s (nth s 1))] (f x)))
 
 (defn fragment-selector? [selector]
   (map? selector))
@@ -588,42 +633,7 @@
  [& forms]
   `(do-> (transformation ~@forms) strict-mode*)) 
 
-;; predicates utils
-(defn zip-pred 
- "Turns a predicate function on elements locs into a predicate-step usable in selectors."
- [f]
-  #(and (z/branch? %) (f %)))
-
-(defn pred 
- "Turns a predicate function on elements into a predicate-step usable in selectors."
- [f]
-  (zip-pred #(f (z/node %))))
-
-(defn text-pred 
- "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
- [f]
-  #(let [n (z/node %)] (and (string? n) (f n))))
-
-(defn re-pred 
- "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
- [re]
-  (text-pred #(re-matches re %)))
-
-(def whitespace (re-pred #"\s*"))
-
-;; predicates
-(def any (pred (constantly true)))
-
-(defn tag= 
- "Selector predicate, :foo is as short-hand for (tag= :foo)."
- [tag-name]
-  (pred #(= (:tag %) tag-name)))
-
-(defn id=
- "Selector predicate, :#foo is as short-hand for (id= \"foo\")."
- [id]
-  (pred #(= (-> % :attrs :id) id)))
-
+;; other predicates
 (defn attr? 
  "Selector predicate, tests if the specified attributes are present."
  [& kws]
@@ -643,16 +653,6 @@
 (def #^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
  attr= 
   (multi-attr-pred =))
-
-(defn attr-has
- "Selector predicate, tests if the specified whitespace-seperated attribute contains the specified values. See CSS ~="
- [attr & values]
-  (pred #(when-let [v (attr-values % attr)] (every? v values))))
- 
-(defn has-class 
- "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
- [& classes]
-  (apply attr-has :class classes)) 
 
 (defn- starts-with? [#^String s #^String prefix]
   (and s (.startsWith s prefix)))
