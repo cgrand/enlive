@@ -11,8 +11,7 @@
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
   (:require [net.cgrand.xml :as xml])
-  (:require [clojure.zip :as z])
-  (:require [net.cgrand.enlive-html.state-machine :as sm]))
+  (:require [clojure.zip :as z]))
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 
@@ -293,12 +292,15 @@
         derivations (dissoc derivations nil :accepts)
         ps (predset (keys derivations))
         next-states (memoize (states always (vals derivations)))]
-    (sm/state accepts (when (seq chains) 
-                        #(-> % ps next-states (make-state make-state))))))
+    [accepts (when (seq chains) 
+               #(-> % ps next-states (make-state make-state)))]))
 
 (defn automaton [selector]
   (let [mms (memoize make-state)]
     (mms (-> selector selector-chains set) mms)))
+
+(defn accept? [s] (nth s 0))
+(defn step [s x] (when-let [f (and s (nth s 1))] (f x)))
 
 (defn fragment-selector? [selector]
   (map? selector))
@@ -312,12 +314,12 @@
   (when (z/branch? loc) (take-while identity (iterate z/right (z/down loc)))))
 
 (defn- transform-loc [loc previous-state transformation]
-  (let [state (sm/step previous-state loc)
+  (let [state (step previous-state loc)
         children (flatmap #(transform-loc % state transformation) (children-locs loc))
         node (if (and (z/branch? loc) (not= children (z/children loc)))
                  (z/make-node loc (z/node loc) children) 
                  (z/node loc))]
-    (if (sm/accept? state)
+    (if (accept? state)
       (transformation node)
       node)))
 
@@ -334,10 +336,10 @@
              [(if (and (z/branch? loc) (not= children (z/children loc)))
                 (z/make-node loc (z/node loc) children) 
                 (z/node loc))
-              (sm/accept? from-state)
-              (sm/accept? to-state)]))
-        from-states (map #(sm/step from-state %) locs)
-        to-states (map #(sm/step to-state %) locs)
+              (accept? from-state)
+              (accept? to-state)]))
+        from-states (map #(step from-state %) locs)
+        to-states (map #(step to-state %) locs)
         nodes+ (map transform-fragment-loc locs from-states to-states)]
     (loop [nodes+ nodes+ fragment nil transformed-nodes []]
       (if-let [[[node start? end?] & etc] nodes+]
@@ -379,9 +381,9 @@
 
 (defn zip-select-nodes* [locs state]
   (letfn [(select1 [loc previous-state] 
-            (let [state (sm/step previous-state loc)
+            (let [state (step previous-state loc)
                   descendants (mapcat #(select1 % state) (children-locs loc))]
-              (if (sm/accept? state) (cons loc descendants) descendants)))]
+              (if (accept? state) (cons loc descendants) descendants)))]
     (mapcat #(select1 % state) locs)))
       
 (defn select-nodes* [nodes selector]
@@ -390,8 +392,8 @@
       
 (defn zip-select-fragments* [locs state-from state-to]
   (letfn [(select1 [locs previous-state-from previous-state-to] 
-            (let [states-from (map #(sm/step previous-state-from %) locs)
-                  states-to (map #(sm/step previous-state-to %) locs)
+            (let [states-from (map #(step previous-state-from %) locs)
+                  states-to (map #(step previous-state-to %) locs)
                   descendants (reduce into []
                                 (map #(select1 (children-locs %1) %2 %3) 
                                   locs states-from states-to))]
@@ -400,12 +402,12 @@
                 (if-let [[loc & etc] (seq locs)]
                   (if fragment
                     (let [fragment (conj fragment loc)]
-                      (if (sm/accept? (first states-to))
+                      (if (accept? (first states-to))
                         (recur (conj fragments fragment) nil etc 
                           (rest states-from) (rest states-to))
                         (recur fragments fragment etc 
                           (rest states-from) (rest states-to))))
-                    (if (sm/accept? (first states-from))
+                    (if (accept? (first states-from))
                       (recur fragments [] locs states-from states-to)
                       (recur fragments nil etc 
                         (rest states-from) (rest states-to))))
