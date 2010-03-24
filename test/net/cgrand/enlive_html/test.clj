@@ -223,3 +223,9 @@
 (set-test emit*
   (is (= "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')</script></h1>"
         (sniptest "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')"))))
+
+(set-test transform-content
+  (is-same "<div><div class='bar'><div>"
+    (sniptest "<div><div><div>" 
+      [:> :div] (transform-content [:> :div] (add-class "bar")))))
+      

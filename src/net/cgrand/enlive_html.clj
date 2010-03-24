@@ -544,6 +544,11 @@
  [& values]
   #(assoc % :content (flatten values)))
 
+(defmacro transform-content [& body]
+ `(let [f# (transformation ~@body)]
+    (fn [elt#] 
+      (assoc elt# :content (flatmap f# (:content elt#))))))
+
 (defn html-snippet [& values]
  "Concatenate values as a string and then parse it with tagsoup.
   html-snippet doesn't insert missing <html> or <body> tags."
