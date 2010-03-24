@@ -12,13 +12,25 @@ h2. Where do I get support?
 
 h2. What's new in Enlive?
 
-Fragment selectors allow to select adjacent nodes. They are denoted by a map of two node selectors (eg @{[:h1] [:p]}@), bounds are inclusive and they select the smallest matching fragments.   
+Dynamic selectors: selectors aren't compiled anymore. It means that you don't 
+need to wrap them in (selector ...) forms anymore nor to eval thme in the most
+dynamic cases.
 
-Transformations (the right-hand parts of rules) are now plain old closures. These functions take one arg (the selected node) and return nil, another node or an arbitrarily nested collection of nodes.
+Fragment selectors allow to select adjacent nodes. They are denoted by a map of
+two node selectors (eg @{[:h1] [:p]}@), bounds are inclusive and they select
+the smallest matching fragments.   
 
-Rules are applied top-down: the first rule transforms the whole tree and the resulting tree is passed to the next rules.
+Transformations (the right-hand parts of rules) are now plain old closures. 
+These functions take one arg (the selected node) and return nil, another node 
+or an arbitrarily nested collection of nodes.
 
-Nodes are transformed deep-first, that is: if a selector selects several nodes, descendants are transformed first. Hence, when the transformation is applied to an ancestor, you can "see" the transformed descendants (but you can not see your transformed siblings).
+Rules are applied top-down: the first rule transforms the whole tree and the 
+resulting tree is passed to the next rules.
+
+Nodes are transformed deep-first, that is: if a selector selects several nodes,
+descendants are transformed first. Hence, when the transformation is applied to
+an ancestor, you can "see" the transformed descendants (but you can not see
+your transformed siblings).
 
 <pre>
    /B                                                                             /(T B)
@@ -29,16 +41,22 @@ Nodes are transformed deep-first, that is: if a selector selects several nodes, 
 
 h2. Templates and snippets
 
-A snippet is a function that returns a seq of nodes, it can be used as a building block for more complex templates.
+A snippet is a function that returns a seq of nodes, it can be used as a
+building block for more complex templates.
 
-A template is a function that returns a seq of string -- basically it's a snippet whose output is serialized. Templates return a seq of strings to avoid building the whole string.
+A template is a function that returns a seq of string -- basically it's a
+snippet whose output is serialized. Templates return a seq of strings to avoid
+building the whole string.
 
-Templates and snippets transform a source (specified as a path (to access resources on the classpath), a File, a Reader, an InputStream, an URI, an URL, an element or a seq of nodes).
+Templates and snippets transform a source (specified as a path (to access 
+resources on the classpath), a File, a Reader, an InputStream, an URI, an URL,
+an element or a seq of nodes).
 
 
 h2. The @at@ form
 
-The @at@ form is the most important form in Enlive. There are implicit @at@ forms in @snippet@ and @template@.  
+The @at@ form is the most important form in Enlive. There are implicit @at@ 
+forms in @snippet@ and @template@.  
 
 <pre>
   (at a-node
@@ -47,11 +65,14 @@ The @at@ form is the most important form in Enlive. There are implicit @at@ form
     ...)
 </pre>
 
-The right-hand value of a rule can be nil. It's the idiomatic way to remove an element.
+The right-hand value of a rule can be nil. It's the idiomatic way to remove an
+element.
 
-Transformations are closures which take one arg (the selected node) and return nil, another node or an arbitrarily nested collection of nodes.
+Transformations are closures which take one arg (the selected node) and return
+nil, another node or an arbitrarily nested collection of nodes.
 
-Rules are applied top-down: the first rule transforms the whole tree and the resulting tree is passed to the next rules.
+Rules are applied top-down: the first rule transforms the whole tree and the
+resulting tree is passed to the next rules.
 
 
 h2. Selectors
@@ -76,45 +97,6 @@ Some examples:
   [:div :> text-node]                          (text children of a div) 
   [:div :> any-node]                           (all children (including text nodes and comments) of a div)
   {[:dt] [:dl]}                                (fragments starting by DT and ending at the *next* DD)    
-</pre>
-
-h3. Compilation
-
-At macroexpansion-time in @select@, @snippet@ and @at@ macros, selectors are compiled to code: (all expansions are edited for clarity)
-
-<pre>
-  net.cgrand.enlive-html=> (compile-selector '[:div])
-  (node-selector (chain descendants-or-self (tag= :div)))
-  net.cgrand.enlive-html=> (compile-selector '[:body :script])
-  (node-selector (chain descendants-or-self (tag= :body) descendants-or-self (tag= :script)))
-  net.cgrand.enlive-html=> (compile-selector '[#{:ul.outline :ol.outline} :> :li])
-  (node-selector (chain descendants-or-self (union (intersection (tag= :ol) (has-class "outline")) (intersection (tag= :ul) (has-class "outline"))) (tag= :li)))
-  net.cgrand.enlive-html=> (compile-selector '[[:div (attr= :title "foobar")]])
-  (node-selector (chain descendants-or-self (intersection (tag= :div) (attr= :title "foobar"))))
-  net.cgrand.enlive-html=> (compile-selector '{[:h1] [:p]})
-  (fragment-selector (chain descendants-or-self (tag= :h1)) (chain descendants-or-self (tag= :p)))
-</pre>
-
-@(compile-selector '[:div])@ is equivalent to @(macroexpand-1 '(selector [:div]))@.
-
-@at@, @select@, @snippet@ are macros that expect a selector to be passed. If you want to use a value instead of the selector, you have to use @at*@, @select*@ and @snippet*@ which are the functions behind the macro sugar.
-
-<pre>
-  net.cgrand.enlive-html=> (macroexpand-1 '(at node [:div] (content "It's a div")))
-  (at* [node] (selector [:div]) (content "It's a div"))
-  net.cgrand.enlive-html=> (macroexpand-1 '(select some-html some-selector))
-  (select* some-html (selector some-selector))
-</pre>
-
-The relation between @snippet@ and @snippet*@ is more complex: @snippet*@ doesn't not take a selector, you have to select your nodes before (through @select@ or @select*@). 
-
-<pre>
-  net.cgrand.enlive-html=> (-> '(snippet a-source [:div#foo] [args] selector1 transformation1) macroexpand-1)
-  (snippet* (select (html-resource a-source) [:div#foo]) [args] selector1 transformation1)
-  net.cgrand.enlive-html=> (-> '(snippet a-source [:div#foo] [args] selector1 transformation1) macroexpand-1 macroexpand-1)
-  (let [nodes__4595__auto__ (select (html-resource a-source) [:div#foo])] 
-    (fn [args] 
-      (flatmap #(at % selector1 transformation1)) nodes__4595__auto__)))
 </pre>
 
 
