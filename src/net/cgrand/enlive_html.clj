@@ -800,6 +800,8 @@
   
 (def any-node (constantly true))
 
+(def this-node [:> any-node])
+
 (def text-node #(string? (z/node %)))
 
 (def comment-node #(xml/comment? (z/node %)))
