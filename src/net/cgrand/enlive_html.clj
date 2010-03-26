@@ -215,13 +215,19 @@
 
 ;; selector syntax
 (defn intersection [preds]
-  (if-let [pred (when-not (next preds) (first preds))]
-    pred
+  (condp = (count preds)
+    1 (first preds)
+    2 (let [[f g] preds] #(and (f %) (g %)))
+    3 (let [[f g h] preds] #(and (f %) (g %) (h %)))
+    4 (let [[f g h k] preds] #(and (f %) (g %) (h %) (k %)))
     (fn [x] (every? #(% x) preds))))
 
 (defn union [preds]
-  (if-let [pred (when-not (next preds) (first preds))]
-    pred
+  (condp = (count preds)
+    1 (first preds)
+    2 (let [[f g] preds] #(or (f %) (g %)))
+    3 (let [[f g h] preds] #(or (f %) (g %) (h %)))
+    4 (let [[f g h k] preds] #(or (f %) (g %) (h %) (k %)))
     (fn [x] (some #(% x) preds))))
 
 ;; predicates utils
@@ -304,10 +310,17 @@
     (compile-chain x)))
 
 (defn- predset [preds]
-  #(loop [i 1 r 0 preds (seq preds)]
-     (if-let [[pred & preds] preds]
-       (recur (bit-shift-left i 1) (if (pred %) (+ i r) r) preds)
-       r)))
+  (condp = (count preds)
+    1 (let [[f] preds] #(if (f %) 1 0))
+    2 (let [[f g] preds] #(+ (if (f %) 1 0) (if (g %) 2 0)))
+    3 (let [[f g h] preds] #(-> (if (f %) 1 0) (+ (if (g %) 2 0))
+                              (+ (if (h %) 4 0))))
+    4 (let [[f g h k] preds] #(-> (if (f %) 1 0) (+ (if (g %) 2 0))
+                                (+ (if (h %) 4 0)) (+ (if (k %) 8 0))))
+    #(loop [i 1 r 0 preds (seq preds)]
+       (if-let [[pred & preds] preds]
+         (recur (bit-shift-left i 1) (if (pred %) (+ i r) r) preds)
+         r))))
 
 (defn- states [init chains-seq]
   (fn [#^Number n]
