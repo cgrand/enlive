@@ -27,7 +27,7 @@
  given a root element"
  [root]
    (z/zipper #(or (tag? %) (document? %)) 
-     :content #(assoc %1 :content (and %2 (apply vector %2))) root))
+     (comp seq :content) #(assoc %1 :content %2) root))
 
 (defn- insert-element [loc e]
   (-> loc (z/append-child e) z/down z/rightmost))
