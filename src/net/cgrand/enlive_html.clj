@@ -330,7 +330,7 @@
         (zero? n) s
         :else (recur (bit-shift-right n 1) s etc)))))
 
-(defn- make-state [chains make-state]
+(defn- make-state [chains]
   (let [derivations 
           (reduce
             (fn [derivations chain]
@@ -349,16 +349,14 @@
         accepts (derivations :accepts)
         derivations (dissoc derivations nil :accepts)
         ps (predset (keys derivations))
-        next-states (memoize (states always (vals derivations)))]
-    [accepts (when (seq chains) 
-               #(-> % ps next-states (make-state make-state)))]))
+        next-states (memoize #(make-state ((states always (vals derivations)) %)))]
+    [accepts (when (seq chains) (comp next-states ps))]))
 
 (defn cacheable [selector] (vary-meta selector assoc ::cacheable true))
 (defn cacheable? [selector] (-> selector meta ::cacheable))
 
 (defn- automaton* [selector]
-  (let [mms (memoize make-state)]
-    (mms (-> selector selector-chains set) mms)))
+  (make-state (-> selector selector-chains set)))
 
 (def #^{:private true} memoized-automaton* (memoize automaton*))
     
