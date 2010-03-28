@@ -15,6 +15,15 @@
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 
+(defn- mapknit 
+ ([f coll]
+   (mapknit f coll nil))
+ ([f coll etc]
+  (lazy-seq
+    (if (seq coll)
+      (f (first coll) (mapknit f (rest coll) etc))
+      etc))))
+    
 ;; HTML I/O stuff
 
 (defn- startparse-tagsoup [s ch]
@@ -104,36 +113,38 @@
 
 (declare emit)
 
-(defn- emit-attrs [attrs]
-  (mapcat (fn [[k v]]
-            [" " (name k) "=\"" (attr-str v) "\""]) attrs))
+(defn- emit-attrs [attrs etc]
+  (mapknit (fn [[k v] etc]
+             (list* " " (name k) "=\"" (attr-str v) "\"" etc)) attrs etc))
 
 (defn- content-emitter [tag-name]
-  (if (#{"script" "style"} tag-name) (fn [x] [(str x)]) emit))
+  (if (#{"script" "style"} tag-name) (fn [x etc] (cons (str x) etc)) emit))
 
-(defn- emit-tag [tag]
-  (let [name (-> tag :tag name)]
-    (concat ["<" name]
-      (emit-attrs (:attrs tag))
-      (if-let [s (seq (:content tag))]
-        (concat [">"] (mapcat (content-emitter name) s) ["</" name ">"])
-        (if (*self-closing-tags* (:tag tag)) 
-          [" />"]
-          ["></" name ">"])))))
+(defn- emit-tag [tag etc]
+  (let [name (-> tag :tag name)
+        etc (if-let [s (seq (:content tag))]
+              (->> etc (list* "</" name ">") 
+                (mapknit (content-emitter name) s)
+                (cons ">")) 
+              (if (*self-closing-tags* (:tag tag)) 
+                (cons " />" etc)
+                (list* "></" name ">" etc)))
+        etc (emit-attrs (:attrs tag) etc)]
+    (list* "<" name etc)))
 
-(defn- emit-comment [node]
-  ["<!--" (str (:data node)) "-->"])
+(defn- emit-comment [node etc]
+  (list* "<!--" (str (:data node)) "-->" etc))
   
 (defn- annotations [x]
   (-> x meta ::annotations))
 
-(defn- emit [node]
+(defn- emit [node etc]
   (cond 
-    (xml/tag? node) ((:emit (annotations node) emit-tag) node)
-    (xml/comment? node) (emit-comment node) 
-    :else [(xml-str node)]))
+    (xml/tag? node) ((:emit (annotations node) emit-tag) node etc)
+    (xml/comment? node) (emit-comment node etc) 
+    :else (cons (xml-str node) etc)))
 
-(defn- emit-root [node]
+(defn- emit-root [node etc]
   (if-let [[name public-id system-id] (-> node meta ::xml/dtd)]
     (let [preamble (cond
                      public-id 
@@ -142,36 +153,34 @@
                        (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
                      :else
                        (str "<!DOCTYPE " name ">\n"))]
-      (cons preamble (emit node)))
-    (emit node)))
+      (cons preamble (emit node etc)))
+    (emit node etc)))
   
 (defn emit* [node-or-nodes]
-  (if (xml/tag? node-or-nodes) (emit-root node-or-nodes) (mapcat emit-root node-or-nodes)))
+  (if (xml/tag? node-or-nodes) (emit-root node-or-nodes nil) (mapknit emit-root node-or-nodes)))
 
 (defn- tag-emitter [{:keys [tag content attrs] :as node}]
   (let [name (name tag)
-        attrs-str (apply str (emit-attrs attrs))
+        attrs-str (apply str (emit-attrs attrs nil))
         open (str "<" name attrs-str ">")
         close (str "</" name ">")
-        empty [(if (*self-closing-tags* tag)
-                 (str "<" name attrs-str " />")
-                 (str open close))]
-        open [open]
-        close [close]
+        empty (if (*self-closing-tags* tag)
+                (str "<" name attrs-str " />")
+                (str open close))
         emit (content-emitter name)
-        full [(apply str (emit-tag node))]]
-    (fn [elt]
+        full (apply str (emit-tag node nil))]
+    (fn [elt etc]
       (cond
-        (= node elt) full
+        (= node elt) (cons full etc)
         (and (= tag (:tag elt)) (= attrs (:attrs elt)))
           (if-let [content (seq (:content elt))]
-            (concat open (mapcat emit content) close)
-            empty)
-        :else (emit-tag elt)))))
+            (->> etc (cons close) (mapknit emit content) (cons open))
+            (cons empty etc))
+        :else (emit-tag elt etc)))))
 
 (defn- comment-emitter [{data :data :as node}]
-  (let [s (apply str (emit-comment node))]
-    #(if (= node %) s (emit-comment node))))
+  (let [s (apply str (emit-comment node nil))]
+    #(if (= node %) (cons s %2) (emit-comment node %2))))
 
 (defn annotate [node]
   (cond
@@ -192,11 +201,6 @@
     [node-or-nodes] 
     node-or-nodes))
 
-(defn- mapknit [f coll]
-  (lazy-seq
-    (when (seq coll)
-      (f (first coll) (mapknit f (rest coll))))))
-    
 (defn flatten [x]
   (letfn [(flat* [x stack]
             (if (node? x) 
