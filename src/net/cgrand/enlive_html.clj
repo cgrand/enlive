@@ -191,8 +191,13 @@
   (if (node? node-or-nodes)
     [node-or-nodes] 
     node-or-nodes))
+
+(defn- mapknit [f coll]
+  (lazy-seq
+    (when (seq coll)
+      (f (first coll) (mapknit f (rest coll))))))
     
-(defn- flatten [x]
+(defn flatten [x]
   (letfn [(flat* [x stack]
             (if (node? x) 
               (cons x (when (seq stack) (flat (peek stack) (pop stack))))
@@ -381,21 +386,22 @@
 (defn- children-locs [loc]
   (when (z/branch? loc) (take-while identity (iterate z/right (z/down loc)))))
 
-(defn- transform-loc [loc previous-state transformation]
+(defn- transform-loc [loc previous-state transformation etc]
   (if-let [state (step previous-state loc)]
-    (let [children (flatmap #(transform-loc % state transformation) (children-locs loc))
-          node (if (and (z/branch? loc) (not= children (z/children loc)))
-                 (z/make-node loc (z/node loc) children) 
+    (let [node (if-let [children (and (z/branch? loc) 
+                                   (mapknit #(transform-loc %1 state transformation %2) (children-locs loc)))]
+                 (z/make-node loc (z/node loc) children)
                  (z/node loc))]
       (if (accept? state)
-        (transformation node)
-        node))
-    (z/node loc)))
+        (let [result (transformation node)]
+          ((if (node? result) cons concat) result etc)) 
+        (cons node etc)))
+    (cons (z/node loc) etc)))
 
 (defn- transform-node [nodes selector transformation]
   (let [transformation (or transformation (constantly nil))
         state (automaton selector)]
-    (flatmap #(transform-loc (xml/xml-zip %) state transformation) nodes)))
+    (mapknit #(transform-loc (xml/xml-zip %1) state transformation %2) nodes)))
 
 (defn- transform-fragment-locs [locs from-state to-state transformation]
   (if (and from-state to-state)
@@ -551,7 +557,7 @@
 ;; transformations
 
 (defn content
- "Replaces the content of the element. Values can be nodes or nested collection of nodes." 
+ "Replaces the content of the element. Values can be nodes or collection of nodes." 
  [& values]
   #(assoc % :content (flatten values)))
 
@@ -613,7 +619,7 @@
 (defmacro clone-for
  [comprehension & forms]
   `(fn [node#]
-     (for ~comprehension ((transformation ~@forms) node#))))
+     (flatten (for ~comprehension ((transformation ~@forms) node#)))))
 
 (defn append
  "Appends the values to the content of the selected element."

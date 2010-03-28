@@ -13,6 +13,9 @@ h2. Where do I get support?
 
 h2. What's new in Enlive?
 
+Transformations are now slightly restricted in their return values: a node or 
+a collection of nodes (instead of freely nested collections of nodes).
+
 Dynamic selectors: selectors aren't compiled anymore. It means that you don't 
 need to wrap them in (selector ...) forms anymore nor to eval thme in the most
 dynamic cases.
@@ -23,7 +26,7 @@ the smallest matching fragments.
 
 Transformations (the right-hand parts of rules) are now plain old closures. 
 These functions take one arg (the selected node) and return nil, another node 
-or an arbitrarily nested collection of nodes.
+or a collection of nodes.
 
 Rules are applied top-down: the first rule transforms the whole tree and the 
 resulting tree is passed to the next rules.
