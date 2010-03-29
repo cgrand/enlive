@@ -229,23 +229,6 @@
   (when-let [v (-> node :attrs (get attr))]
     (set (re-seq #"\S+" v))))
 
-;; selector syntax
-(defn intersection [preds]
-  (condp = (count preds)
-    1 (first preds)
-    2 (let [[f g] preds] #(and (f %) (g %)))
-    3 (let [[f g h] preds] #(and (f %) (g %) (h %)))
-    4 (let [[f g h k] preds] #(and (f %) (g %) (h %) (k %)))
-    (fn [x] (every? #(% x) preds))))
-
-(defn union [preds]
-  (condp = (count preds)
-    1 (first preds)
-    2 (let [[f g] preds] #(or (f %) (g %)))
-    3 (let [[f g h] preds] #(or (f %) (g %) (h %)))
-    4 (let [[f g h k] preds] #(or (f %) (g %) (h %) (k %)))
-    (fn [x] (some #(% x) preds))))
-
 ;; predicates utils
 (defn zip-pred 
  "Turns a predicate function on elements locs into a predicate-step usable in selectors."
@@ -292,6 +275,22 @@
  [& classes]
   (apply attr-has :class classes))
    
+;; selector syntax
+(defn intersection [preds]
+  (condp = (count preds)
+    1 (first preds)
+    2 (let [[f g] preds] #(and (f %) (g %)))
+    3 (let [[f g h] preds] #(and (f %) (g %) (h %)))
+    4 (let [[f g h k] preds] #(and (f %) (g %) (h %) (k %)))
+    (fn [x] (every? #(% x) preds))))
+
+(defn union [preds]
+  (condp = (count preds)
+    1 (first preds)
+    2 (let [[f g] preds] #(or (f %) (g %)))
+    3 (let [[f g h] preds] #(or (f %) (g %) (h %)))
+    4 (let [[f g h k] preds] #(or (f %) (g %) (h %) (k %)))
+    (fn [x] (some #(% x) preds))))
 
 (def #^{:private true} compile-keyword 
   (memoize 
