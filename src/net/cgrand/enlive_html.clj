@@ -320,9 +320,9 @@
 (defn- compile-chain [chain]
   (map compile-step chain))
 
-(defn- selector-chains [selector]
+(defn- selector-chains [selector id]
   (for [x (tree-seq set? seq selector) :when (not (set? x))]
-    (compile-chain x)))
+    (compile-chain (concat x [id]))))
 
 (defn- predset [preds]
   (condp = (count preds)
@@ -353,13 +353,13 @@
                 (= :> (first chain))
                   (let [pred (second chain)]
                     (assoc derivations pred (conj (derivations pred) (nnext chain))))
-                (seq chain)
+                (next chain)
                   (let [pred (first chain)]
                     (-> derivations
                       (assoc nil (conj (derivations nil) chain)) 
                       (assoc pred (conj (derivations pred) (next chain)))))
                 :else
-                  (assoc derivations :accepts true))) {} chains)
+                  (assoc derivations :accepts (first chain)))) {} chains)
         always (derivations nil)
         accepts (derivations :accepts)
         derivations (dissoc derivations nil :accepts)
@@ -371,14 +371,22 @@
 (defn cacheable? [selector] (-> selector meta ::cacheable))
 
 (defn- automaton* [selector]
-  (make-state (-> selector selector-chains set)))
+  (make-state (-> selector (selector-chains 0) set)))
+
+(defn- lockstep-automaton* [selectors]
+  (make-state (set (mapcat selector-chains selectors (iterate inc 0)))))
 
 (def #^{:private true} memoized-automaton* (memoize automaton*))
+
+(def #^{:private true} memoized-lockstep-automaton* (memoize lockstep-automaton*))
     
 (defn- automaton [selector]
   ((if (cacheable? selector) memoized-automaton* automaton*) selector))
 
-(defn- accept? [s] (nth s 0))
+(defn- lockstep-automaton [selectors]
+  ((if (every? cacheable? selectors) memoized-lockstep-automaton* lockstep-automaton*) selectors))
+
+(defn- accept-key [s] (nth s 0))
 (defn- step [s x] (when-let [f (and s (nth s 1))] (f x)))
 
 (defn fragment-selector? [selector]
@@ -396,22 +404,23 @@
 (defn- children-locs [loc]
   (iterate-while z/right (z/down loc)))
 
-(defn- transform-loc [loc previous-state transformation etc]
+(defn- transform-loc [loc previous-state transformations etc]
   (if-let [state (step previous-state loc)]
     (let [node (if-let [children (and (z/branch? loc) 
-                                   (mapknit #(transform-loc %1 state transformation %2) (children-locs loc)))]
+                                   (mapknit #(transform-loc %1 state transformations %2) (children-locs loc)))]
                  (z/make-node loc (z/node loc) children)
                  (z/node loc))]
-      (if (accept? state)
-        (let [result (transformation node)]
+      (if-let [k (accept-key state)]
+        (let [result ((transformations k) node)]
           ((if (node? result) cons concat) result etc)) 
         (cons node etc)))
     (cons (z/node loc) etc)))
 
 (defn- transform-node [nodes selector transformation]
   (let [transformation (or transformation (constantly nil))
+        transformations (constantly transformation)  
         state (automaton selector)]
-    (mapknit #(transform-loc (xml/xml-zip %1) state transformation %2) nodes)))
+    (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
 
 (defn- transform-fragment-locs [locs from-state to-state transformation]
   (if (and from-state to-state)
@@ -422,8 +431,8 @@
                [(if (and (z/branch? loc) (not= children (z/children loc)))
                   (z/make-node loc (z/node loc) children) 
                   (z/node loc))
-                (accept? from-state)
-                (accept? to-state)]))
+                (accept-key from-state)
+                (accept-key to-state)]))
           from-states (map #(step from-state %) locs)
           to-states (map #(step to-state %) locs)
           nodes+ (map transform-fragment-loc locs from-states to-states)]
@@ -458,6 +467,17 @@
     :else ;fragment
       (transform-fragment nodes selector transformation)))
 
+(defn- transform-node [nodes selector transformation]
+  (let [transformation (or transformation (constantly nil))
+        transformations (constantly transformation)  
+        state (automaton selector)]
+    (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
+
+(defn lockstep-transform [nodes transformations-map]
+  (let [state (lockstep-automaton (keys transformations-map))
+        transformations (vec (vals transformations-map))]
+    (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
+
 (defn at* [node-or-nodes rules]
   (reduce (fn [nodes [s t]] (transform nodes s t))
     (as-nodes node-or-nodes) rules))
@@ -465,13 +485,17 @@
 (defmacro at [node-or-nodes & rules]
   `(-> ~node-or-nodes as-nodes 
      ~@(for [[s t] (partition 2 rules)]
-         `(transform ~(if (static-selector? s) (cacheable s) s) ~t))))
+         (if (= :lockstep s)
+           `(lockstep-transform 
+              ~(into {} (for [[s t] t] 
+                          [(if (static-selector? s) (cacheable s) s) t])))
+           `(transform ~(if (static-selector? s) (cacheable s) s) ~t)))))
 
 (defn zip-select-nodes* [locs state]
   (letfn [(select1 [loc previous-state] 
             (when-let [state (step previous-state loc)]
               (let [descendants (mapcat #(select1 % state) (children-locs loc))]
-                (if (accept? state) (cons loc descendants) descendants))))]
+                (if (accept-key state) (cons loc descendants) descendants))))]
     (mapcat #(select1 % state) locs)))
       
 (defn select-nodes* [nodes selector]
@@ -491,12 +515,12 @@
                   (if-let [[loc & etc] (seq locs)]
                     (if fragment
                       (let [fragment (conj fragment loc)]
-                        (if (accept? (first states-to))
+                        (if (accept-key (first states-to))
                           (recur (conj fragments fragment) nil etc 
                             (rest states-from) (rest states-to))
                           (recur fragments fragment etc 
                             (rest states-from) (rest states-to))))
-                      (if (accept? (first states-from))
+                      (if (accept-key (first states-from))
                         (recur fragments [] locs states-from states-to)
                         (recur fragments nil etc 
                           (rest states-from) (rest states-to))))
