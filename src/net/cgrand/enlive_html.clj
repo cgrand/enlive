@@ -556,6 +556,9 @@
  ([form] form)
  ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
 
+(defmacro lockstep-transformation
+ ([& forms] `(fn [node#] (at node# :lockstep {~@forms}))))
+
 (defmacro snippet* [nodes args & forms]
   `(let [nodes# (map annotate ~nodes)]
      (fn ~args
