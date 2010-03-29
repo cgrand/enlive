@@ -23,6 +23,13 @@
     (if (seq coll)
       (f (first coll) (mapknit f (rest coll) etc))
       etc))))
+
+(defn- iterate-while 
+ ([f x]
+  (lazy-seq (when x (cons x (iterate-while f (f x)))))) 
+ ([f x pred]
+  (lazy-seq (when (pred x) (cons x (iterate-while f (f x) pred)))))) 
+  
     
 ;; HTML I/O stuff
 
@@ -388,7 +395,7 @@
 ;; core 
   
 (defn- children-locs [loc]
-  (when (z/branch? loc) (take-while identity (iterate z/right (z/down loc)))))
+  (iterate-while z/right (z/down loc)))
 
 (defn- transform-loc [loc previous-state transformation etc]
   (if-let [state (step previous-state loc)]
