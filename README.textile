@@ -13,6 +13,27 @@ h2. Where do I get support?
 
 h2. What's new in Enlive?
 
+(most recent first)
+
+By default selector-transformation pairs are run sequentially. When you know
+that several transformations are independent, you can now specify (as an 
+optimization) to process them in lockstep. Note that this doesn't work with
+fragments selectors.
+
+Example:
+<pre>
+  [:a :selector] a-transformation
+  [:another :selector] another-transformation
+  [:a :dependent :selector] yet-another-transformation
+</pre>
+If the first two tarnsformations are independent you can rewrite this code as:
+<pre>
+  :lockstep
+  {[:a :selector] a-transformation
+   [:another :selector] another-transformation}
+  [:a :dependent :selector] yet-another-transformation
+</pre>
+
 Transformations are now slightly restricted in their return values: a node or 
 a collection of nodes (instead of freely nested collections of nodes).
 
