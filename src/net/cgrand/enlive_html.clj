@@ -557,7 +557,7 @@
  ([form & forms] `(fn [node#] (at node# ~form ~@forms))))
 
 (defmacro lockstep-transformation
- ([& forms] `(fn [node#] (at node# :lockstep {~@forms}))))
+ [& forms] `(fn [node#] (at node# :lockstep ~(apply array-map forms))))
 
 (defmacro snippet* [nodes args & forms]
   `(let [nodes# (map annotate ~nodes)]
