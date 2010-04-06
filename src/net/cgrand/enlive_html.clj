@@ -475,7 +475,8 @@
 
 (defn lockstep-transform [nodes transformations-map]
   (let [state (lockstep-automaton (keys transformations-map))
-        transformations (vec (vals transformations-map))]
+        transformations (vec (map #(or % (constantly nil)) 
+                               (vals transformations-map)))]
     (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
 
 (defn at* [node-or-nodes rules]
