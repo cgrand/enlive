@@ -10,7 +10,6 @@
 
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
-  (:refer-clojure :exclude [flatten])
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z]))
 
@@ -209,7 +208,7 @@
     [node-or-nodes] 
     node-or-nodes))
 
-(defn flatten [x]
+(defn flatten-nodes-coll [x]
   (letfn [(flat* [x stack]
             (if (node? x) 
               (cons x (when (seq stack) (flat (peek stack) (pop stack))))
@@ -222,7 +221,7 @@
     (flat x ())))
 
 (defn flatmap [f node-or-nodes]
-  (flatten (map f (as-nodes node-or-nodes))))
+  (flatten-nodes-coll (map f (as-nodes node-or-nodes))))
 
 (defn attr-values 
  "Returns the whitespace-separated values of the specified attr as a set or nil."
@@ -447,7 +446,7 @@
             (if start? 
               (recur nodes+ [] transformed-nodes)
               (recur etc nil (conj transformed-nodes node))))
-          (flatten (into transformed-nodes fragment)))))
+          (flatten-nodes-coll (into transformed-nodes fragment)))))
     (map z/node locs)))
 
 (defn- transform-fragment [nodes selector transformation]
@@ -455,7 +454,7 @@
     nodes
     (let [[from-selector to-selector] (first selector)
           transformation (or transformation (constantly nil))]
-      (flatten (transform-fragment-locs (map xml/xml-zip nodes) 
+      (flatten-nodes-coll (transform-fragment-locs (map xml/xml-zip nodes) 
                  (automaton from-selector) (automaton to-selector) 
                  transformation)))))
 
@@ -598,7 +597,7 @@
 (defn content
  "Replaces the content of the element. Values can be nodes or collection of nodes." 
  [& values]
-  #(assoc % :content (flatten values)))
+  #(assoc % :content (flatten-nodes-coll values)))
 
 (defmacro transform-content [& body]
  `(let [f# (transformation ~@body)]
@@ -658,32 +657,32 @@
 (defmacro clone-for
  [comprehension & forms]
   `(fn [node#]
-     (flatten (for ~comprehension ((transformation ~@forms) node#)))))
+     (flatten-nodes-coll (for ~comprehension ((transformation ~@forms) node#)))))
 
 (defn append
  "Appends the values to the content of the selected element."
  [& values]
-  #(assoc % :content (concat (:content %) (flatten values)))) 
+  #(assoc % :content (concat (:content %) (flatten-nodes-coll values)))) 
 
 (defn prepend
  "Prepends the values to the content of the selected element."
  [& values]
-  #(assoc % :content (concat (flatten values) (:content %)))) 
+  #(assoc % :content (concat (flatten-nodes-coll values) (:content %)))) 
 
 (defn after
  "Inserts the values after the current selection (node or fragment)."
  [& values]
-  #(flatten (cons % values)))
+  #(flatten-nodes-coll (cons % values)))
 
 (defn before
  "Inserts the values before the current selection (node or fragment)."
  [& values]
-  #(flatten (concat values [%])))
+  #(flatten-nodes-coll (concat values [%])))
 
 (defn substitute
  "Replaces the current selection (node or fragment)."
  [& values]
- (constantly (flatten values)))
+ (constantly (flatten-nodes-coll values)))
 
 (defn move
  "Takes all nodes (under the current element) matched by src-selector, removes
