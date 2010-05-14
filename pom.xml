@@ -9,13 +9,17 @@
   <scm>
     <connection>scm:git:git://github.com/cgrand/enlive.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/cgrand/enlive.git</developerConnection>
-    <tag>75c369f2b9c7532a48aaf0621e7b9a58a1004df7</tag>
+    <tag>6527c064ffc33d10687033c990766b44054f6503</tag>
     <url>http://github.com/cgrand/enlive</url>
   </scm>
   <repositories>
     <repository>
       <id>central</id>
       <url>http://repo1.maven.org/maven2</url>
+    </repository>
+    <repository>
+      <id>clojure</id>
+      <url>http://build.clojure.org/releases</url>
     </repository>
     <repository>
       <id>clojure-snapshots</id>
@@ -30,7 +34,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.1.0-master-SNAPSHOT</version>
+      <version>[1.1.0,)</version>
     </dependency>
     <dependency>
       <groupId>org.ccil.cowan.tagsoup</groupId>
