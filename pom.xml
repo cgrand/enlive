@@ -1,40 +1,100 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
   <modelVersion>4.0.0</modelVersion>
-  <groupId>enlive</groupId>
+  <parent>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>5</version>
+  </parent>
+  <groupId>org.cloudhoist</groupId>
   <artifactId>enlive</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <name>enlive</name>
-  <description>a HTML selector-based (à la CSS) templating and transformation system for Clojure</description>
+  <description>a HTML selector-based (a la CSS) templating and transformation system for Clojure.</description>
+  <url>http://github.com/cgrand/enlive</url>
+
+  <licenses>
+    <license>
+      <name>Eclipse Public License</name>
+      <url>http://www.eclipse.org/legal/epl-v10.html</url>
+    </license>
+  </licenses>
+
+  <mailingLists>
+    <mailingList>
+      <name>enlive-clj</name>
+      <subscribe>http://groups.google.com/group/enlive-clj</subscribe>
+      <unsubscribe>http://groups.google.com/group/enlive-clj</unsubscribe>
+      <post>enlive-clj@googlegroups.com</post>
+      <archive>http://groups.google.com/group/enlive-clj</archive>
+    </mailingList>
+  </mailingLists>
+
   <scm>
     <connection>scm:git:git://github.com/cgrand/enlive.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/cgrand/enlive.git</developerConnection>
-    <tag>6527c064ffc33d10687033c990766b44054f6503</tag>
     <url>http://github.com/cgrand/enlive</url>
   </scm>
-  <repositories>
+  <build>
+    <sourceDirectory>src</sourceDirectory>
+    <testSourceDirectory>test</testSourceDirectory>
+    <resources>
+      <resource>
+        <directory>src</directory>
+      </resource>
+      <resource>
+        <directory>resources</directory>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>com.theoryinpractise</groupId>
+        <artifactId>clojure-maven-plugin</artifactId>
+        <version>1.3.4</version>
+        <configuration>
+          <sourceDirectories>
+            <sourceDirectory>src</sourceDirectory>
+          </sourceDirectories>
+          <testSourceDirectories>
+            <testSourceDirectory>test</testSourceDirectory>
+          </testSourceDirectories>
+          <clojureOptions>-Xmx512m -Djava.awt.headless=true -XX:MaxPermSize=256m</clojureOptions>
+          <warnOnReflection>true</warnOnReflection>
+          <testDeclaredNamespaceOnly>false</testDeclaredNamespaceOnly>
+          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+          <!-- we want the AOT compile sanity check, but still only ship source -->
+          <outputDirectory>${project.build.directory}/clojure-classes</outputDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>test-clojure</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <distributionManagement>
     <repository>
-      <id>central</id>
-      <url>http://repo1.maven.org/maven2</url>
+      <id>sonatype-nexus-staging</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+      <uniqueVersion>false</uniqueVersion>
     </repository>
-    <repository>
-      <id>clojure</id>
-      <url>http://build.clojure.org/releases</url>
-    </repository>
-    <repository>
-      <id>clojure-snapshots</id>
-      <url>http://build.clojure.org/snapshots</url>
-    </repository>
-    <repository>
-      <id>clojars</id>
-      <url>http://clojars.org/repo/</url>
-    </repository>
-  </repositories>
+    <snapshotRepository>
+      <id>sonatype-nexus-snapshots</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>[1.1.0,)</version>
+      <version>1.1.0</version>
     </dependency>
     <dependency>
       <groupId>org.ccil.cowan.tagsoup</groupId>
@@ -42,9 +102,48 @@
       <version>1.2</version>
     </dependency>
   </dependencies>
+
+  <profiles>
+    <profile>
+      <id>sonatype-release-profile-extension</id>
+      <activation>
+        <property>
+          <name>performRelease</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <configuration>
+              <keyName>${gpg.keyname}</keyName>
+              <passphrase>${gpg.passphrase}</passphrase>
+            </configuration>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+  <developers>
+    <developer>
+      <name>Cristophe Grand</name>
+      <id>cgrand</id>
+      <roles>
+        <role>PMC</role>
+        <role>Developer</role>
+      </roles>
+      <timezone>0</timezone>
+    </developer>
+  </developers>
 </project>
 
-<!-- This file was autogenerated by the Leiningen build tool.
-  Please do not edit it directly; instead edit project.clj and regenerate it.
-  It should not be considered canonical data. For more information see
-  http://github.com/technomancy/leiningen -->
