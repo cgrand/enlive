@@ -235,3 +235,10 @@
   (is-same "<div><div class='bar'><div>"
            (sniptest "<div><div><div>" [:> :div] (transform-content [:> :div] (add-class "bar")))))
 
+(deftest test-encode
+  (are [expected path]
+       (= expected
+	  (-> path html-resource (select [:p]) first :content first))
+       "あいうえお" "resources/utf_8.txt"
+       "あいうえお" "resources/shift_jis.txt"
+       "あいうえお" "resources/euc_jp.txt"))
