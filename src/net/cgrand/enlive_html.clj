@@ -587,10 +587,11 @@
 
 (defmacro defsnippets
  [source & specs]
- `(let [xml# (html-resource ~source)] 
-   ~@(map (fn [[name selector args & forms]]
-            `(def ~name (snippet xml# ~selector ~args ~@forms)))
-       specs)))
+ (let [xml-sym (gensym "xml")]
+   `(let [~xml-sym (html-resource ~source)] 
+      ~@(for [[name selector args & forms] specs]
+               `(def ~name (snippet ~xml-sym ~selector ~args ~@forms))))))
+
 
 ;; transformations
 
