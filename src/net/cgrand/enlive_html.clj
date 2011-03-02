@@ -116,7 +116,7 @@
  [x]
   (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;") (.replace "\"" "&quot;")))
 
-(def *self-closing-tags* #{:area :base :basefont :br :hr :input :img :link :meta})
+(def self-closing-tags #{:area :base :basefont :br :hr :input :img :link :meta})
 
 (declare emit)
 
@@ -133,7 +133,7 @@
               (->> etc (list* "</" name ">") 
                 (mapknit (content-emitter name) s)
                 (cons ">")) 
-              (if (*self-closing-tags* (:tag tag)) 
+              (if (self-closing-tags (:tag tag)) 
                 (cons " />" etc)
                 (list* "></" name ">" etc)))
         etc (emit-attrs (:attrs tag) etc)]
@@ -171,7 +171,7 @@
         attrs-str (apply str (emit-attrs attrs nil))
         open (str "<" name attrs-str ">")
         close (str "</" name ">")
-        empty (if (*self-closing-tags* tag)
+        empty (if (self-closing-tags tag)
                 (str "<" name attrs-str " />")
                 (str open close))
         emit (content-emitter name)
