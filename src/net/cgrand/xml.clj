@@ -41,7 +41,7 @@
 
 (defn- handler [loc metadata]
   (proxy [DefaultHandler2] []
-    (startElement [uri local-name q-name #^Attributes atts]
+    (startElement [uri local-name q-name ^Attributes atts]
       (let [e (struct element 
                 (keyword q-name)
                 (when (pos? (. atts (getLength)))
@@ -51,11 +51,11 @@
     (endElement [uri local-name q-name]
       (swap! loc z/up))
     (characters [ch start length]
-      (swap! loc merge-text-left (String. #^chars ch (int start) (int length))))
+      (swap! loc merge-text-left (String. ^chars ch (int start) (int length))))
     (ignorableWhitespace [ch start length]
-      (swap! loc merge-text-left (String. #^chars ch (int start) (int length))))
+      (swap! loc merge-text-left (String. ^chars ch (int start) (int length))))
     (comment [ch start length]
-      (swap! loc z/append-child {:type :comment :data (String. #^chars ch (int start) (int length))}))
+      (swap! loc z/append-child {:type :comment :data (String. ^chars ch (int start) (int length))}))
     (startDTD [name publicId systemId]
       (swap! metadata assoc ::dtd [name publicId systemId]))
     (resolveEntity
@@ -65,7 +65,7 @@
           (.setPublicId publicId)
           (.setCharacterStream (java.io.StringReader. "")))) 
       ([publicId systemId]
-        (let [#^DefaultHandler2 this this]
+        (let [^DefaultHandler2 this this]
           (proxy-super resolveEntity publicId systemId))))))
 
 (defn startparse-sax [s ch]

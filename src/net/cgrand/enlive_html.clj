@@ -41,7 +41,7 @@
     (.setContentHandler ch)
     (.setProperty "http://www.ccil.org/~cowan/tagsoup/properties/auto-detector"
       (proxy [org.ccil.cowan.tagsoup.AutoDetector] []
-        (autoDetectingReader [#^java.io.InputStream is]
+        (autoDetectingReader [^java.io.InputStream is]
           (java.io.InputStreamReader. is "UTF-8"))))
     (.setProperty "http://xml.org/sax/properties/lexical-handler" ch)
     (.parse s)))
@@ -50,16 +50,16 @@
  "Loads and parse an HTML resource and closes the stream."
  [stream]
   (filter map?
-    (with-open [#^java.io.Closeable stream stream]
+    (with-open [^java.io.Closeable stream stream]
       (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
 
 (defn- load-xml-resource 
  "Loads and parse a XML resource and closes the stream."
  [stream] 
-  (with-open [#^java.io.Closeable stream stream]
+  (with-open [^java.io.Closeable stream stream]
     (xml/parse (org.xml.sax.InputSource. stream))))
 
-(defmulti #^{:arglists '([resource loader])} get-resource 
+(defmulti ^{:arglists '([resource loader])} get-resource 
  "Loads a resource, using the specified loader. Returns a seq of nodes." 
  (fn [res _] (type res)))
 
@@ -86,7 +86,7 @@
   (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
 
 (defmethod get-resource java.io.File
- [#^java.io.File file loader]
+ [^java.io.File file loader]
   (loader (java.io.FileInputStream. file)))
 
 (defmethod get-resource java.io.Reader
@@ -98,11 +98,11 @@
   (loader stream))
 
 (defmethod get-resource java.net.URL
- [#^java.net.URL url loader]
+ [^java.net.URL url loader]
   (loader (.getContent url)))
 
 (defmethod get-resource java.net.URI
- [#^java.net.URI uri loader]
+ [^java.net.URI uri loader]
   (get-resource (.toURL uri) loader))
 
 
@@ -292,7 +292,7 @@
     4 (let [[f g h k] preds] #(or (f %) (g %) (h %) (k %)))
     (fn [x] (some #(% x) preds))))
 
-(def #^{:private true} compile-keyword 
+(def ^{:private true} compile-keyword 
   (memoize 
     (fn [kw]
       (if (= :> kw)
@@ -338,7 +338,7 @@
          r))))
 
 (defn- states [init chains-seq]
-  (fn [#^Number n]
+  (fn [^Number n]
     (loop [n n s (set init) [chains & etc] chains-seq]
       (cond
         (odd? n) (recur (bit-shift-right n 1) (into s chains) etc) 
@@ -376,9 +376,9 @@
 (defn- lockstep-automaton* [selectors]
   (make-state (set (mapcat selector-chains selectors (iterate inc 0)))))
 
-(def #^{:private true} memoized-automaton* (memoize automaton*))
+(def ^{:private true} memoized-automaton* (memoize automaton*))
 
-(def #^{:private true} memoized-lockstep-automaton* (memoize lockstep-automaton*))
+(def ^{:private true} memoized-lockstep-automaton* (memoize lockstep-automaton*))
     
 (defn- automaton [selector]
   ((if (cacheable? selector) memoized-automaton* automaton*) selector))
@@ -728,37 +728,37 @@
       (pred #(when-let [attrs (:attrs %)]
                (every?+ single-attr-pred (map attrs ks) vs))))))           
 
-(def #^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
  attr= 
   (multi-attr-pred =))
 
-(defn- starts-with? [#^String s #^String prefix]
+(defn- starts-with? [^String s ^String prefix]
   (and s (.startsWith s prefix)))
 
-(defn- ends-with? [#^String s #^String suffix]
+(defn- ends-with? [^String s ^String suffix]
   (and s (.endsWith s suffix)))
 
-(defn- contains-substring? [#^String s #^String substring]
+(defn- contains-substring? [^String s ^String substring]
   (and s (<= 0 (.indexOf s substring))))
 
-(def #^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."} 
  attr-starts
   (multi-attr-pred starts-with?))
 
-(def #^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."} 
  attr-ends
   (multi-attr-pred ends-with?))
 
-(def #^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."} 
  attr-contains
   (multi-attr-pred contains-substring?))
 
-(defn- is-first-segment? [#^String s #^String segment]
+(defn- is-first-segment? [^String s ^String segment]
   (and s 
     (.startsWith s segment)
     (= \- (.charAt s (count segment)))))
              
-(def #^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS |= ."}
+(def ^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS |= ."}
  attr|=           
   (multi-attr-pred is-first-segment?))
 

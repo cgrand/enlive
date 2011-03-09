@@ -3,14 +3,14 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>enlive</groupId>
   <artifactId>enlive</artifactId>
-  <version>1.0.0</version>
+  <version>1.2.0-alpha1</version>
   <name>enlive</name>
   <description>a HTML selector-based (à la CSS) templating and transformation system for Clojure</description>
   <url>http://github.com/cgrand/enlive/</url>
   <scm>
     <connection>scm:git:git://github.com/cgrand/enlive.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/cgrand/enlive.git</developerConnection>
-    <tag>4ce6f92a56f067d72660c66b1a9e6f52013e3560</tag>
+    <tag>33dbcabb96755afc4015f7c04f5d06d5e9beaf64</tag>
     <url>https://github.com/cgrand/enlive</url>
   </scm>
   <build>
@@ -49,7 +49,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>[1.1.0,)</version>
+      <version>[1.2.0,)</version>
     </dependency>
     <dependency>
       <groupId>org.ccil.cowan.tagsoup</groupId>
