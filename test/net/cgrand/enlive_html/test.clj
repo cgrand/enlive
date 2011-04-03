@@ -265,3 +265,22 @@
   (is-same "<div><div class='bar'><div>"
     (sniptest "<div><div><div>"
       [:> :div] (transform-content [:> :div] (add-class "bar")))))
+
+
+(deftest process-existing-html  
+  (let [existing-template (deftemplate
+                            existing-template
+                            "net/cgrand/enlive_html/fixture.html"
+                            [some-arg]
+                            [:div] (content "CHANGED!"))]
+    (is (= 
+         '("<html>" "<head><title>This is a test.</title></head>" "<body>" "<div class=\"some-class\" id=\"some-div\">" "CHANGED!" "</div>" "</body>" "\n" "</html>")
+         (existing-template :blah)))))
+
+(deftest complain-when-html-does-not-exist
+  ( is (thrown? IllegalArgumentException
+                (deftemplate template-with-incorrect-html
+                  "template/that/is/not/really/there.html"
+                  [blah blah]
+                  [[:sometag (attr? :something)]]))))
+
