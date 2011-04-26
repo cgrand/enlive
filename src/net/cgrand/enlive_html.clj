@@ -615,6 +615,17 @@
  "Replaces the content of the element. Values are strings containing html code."
  [& values]
   #(assoc % :content (apply html-snippet values))) 
+(defn html-append
+ "Appends the values to the content of the selected element. Values are strings containing html code."
+ [& values]
+ #(assoc % :content (concat (:content %)
+                            (apply html-snippet values))))
+
+(defn html-prepend
+ "Prepends the values to the content of the selected element. Values are strings containing html code."
+ [& values]
+ #(assoc % :content (concat (apply html-snippet values)
+                            (:content %))))
 
 (defn wrap 
  ([tag] (wrap tag nil))
