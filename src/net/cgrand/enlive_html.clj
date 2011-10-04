@@ -10,6 +10,7 @@
 
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
+  (:require [clojure.java.io :as io])
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z]))
 
@@ -81,14 +82,6 @@
  [nodes _]
   (seq nodes))
 
-(defmethod get-resource String
- [path loader]
-  (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
-
-(defmethod get-resource java.io.File
- [^java.io.File file loader]
-  (loader (java.io.FileInputStream. file)))
-
 (defmethod get-resource java.io.Reader
  [reader loader]
   (loader reader))
@@ -97,13 +90,10 @@
  [stream loader]
   (loader stream))
 
-(defmethod get-resource java.net.URL
- [^java.net.URL url loader]
-  (loader (.getContent url)))
+(defmethod get-resource :default
+ [r loader]
+  (loader (io/file r)))
 
-(defmethod get-resource java.net.URI
- [^java.net.URI uri loader]
-  (get-resource (.toURL uri) loader))
 
 
 (defn- xml-str
