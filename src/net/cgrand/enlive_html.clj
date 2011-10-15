@@ -836,21 +836,33 @@
  [selector-step]
   (intersection [any (but-node selector-step)]))
 
-(defn left [selector-step]
+(defn left
+ "Selector predicate, matches nodes whose immediate left sibling element is
+  matched by the specified selector-step."
+ [selector-step]
   (let [selector [:> selector-step]]
     #(when-let [sibling (first (filter xml/tag? (reverse (z/lefts %))))]
        (select? sibling selector))))
 
-(defn lefts [selector-step]
+(defn lefts
+ "Selector predicate, matches nodes whose one left sibling element is matched by
+  the specified selector-step."
+ [selector-step]
   (let [selector [:> selector-step]]
     #(select? (filter xml/tag? (z/lefts %)) selector)))
   
-(defn right [selector-step]
+(defn right
+ "Selector predicate, matches nodes whose immediate right sibling element is
+  matched by the specified selector-step."
+ [selector-step]
   (let [selector [:> selector-step]]
     #(when-let [sibling (first (filter xml/tag? (z/rights %)))]
        (select? sibling selector))))
 
-(defn rights [selector-step]
+(defn rights
+ "Selector predicate, matches nodes whose one left sibling element is matched by
+  the specified selector-step."
+ [selector-step]
   (let [selector [:> selector-step]]
     #(select? (filter xml/tag? (z/rights %)) selector)))
   
