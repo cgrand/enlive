@@ -563,7 +563,7 @@
 (defmacro snippet* [nodes args & forms]
   `(let [nodes# (map annotate ~nodes)]
      (fn ~args
-       (flatmap (transformation ~@forms) nodes#))))
+       (doall (flatmap (transformation ~@forms) nodes#)))))
     
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
