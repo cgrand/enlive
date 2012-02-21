@@ -60,7 +60,7 @@ your transformed siblings).
 
 <pre>
    /B                                                                             /(T B)
-  A    if A and B are selected and transformed by T the the resulting tree is (T A      )
+  A    if A and B are selected and transformed by T then the resulting tree is (T A      )
    \C                                                                             \C
 </pre>
 
