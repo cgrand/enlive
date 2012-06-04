@@ -65,6 +65,59 @@ your transformed siblings).
 </pre>
 
 
+h2. Selectors
+
+Enlive selectors can match either nodes or fragments (several adjacent nodes).   
+
+h3. Selectors 101
+
+At the core, *every selector is a vector*. The items of this vector are called
+*steps*.
+
+A step is a predicate, for example @:h1@, @:p.some-class@ or even 
+@(attr? :lang)@. 
+
+To select elements which match several predicates, you need to group
+predicates into a vector: *inside steps, vectors mean "and"*. This may seem
+confusing but the rule is simple: the outer-most vector hierarchically 
+chains steps, all other vectors denote intersection (and) between steps.
+
+So @[:p (attr? :lang)]@ is going to match any elements with a @lang@ attribute
+inside a @p@ element. On the other hand, @[:p (attr? :lang)]@ is going to match
+any @p@ with a @lang@ attribute.
+
+Similarly, sets group predicates in an union. Hence *inside steps, sets mean
+"or"*. So @[#{:div.class1 :div.class2}]@ match every @div@ which has either 
+@class1@ or @class2@. This can alternatively be written 
+as @[[:div #{:.class1 .class2}]]@. Indeed you can have nested "ors" and "ands"
+which means nested sets and vectors.
+
+At the top level you can have a big "or" between selectors by wrapping several 
+selectors in a set. @#{[:td :em] [:th :em]}@ is going to match any @em@ insides
+ either a @th@ or a @td@. This is equivalent to @[#{:td :th} :em]@.
+
+h3. Syntax
+
+See "syntax.html":http://enlive.cgrand.net/syntax.html
+
+Some examples:
+
+<pre>
+  Enlive                           CSS
+  =======================================================
+  [:div]                                       div
+  [:body :script]                              body script
+  #{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
+  [#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
+  [[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
+  [:div :> :*]                                 div > *
+  [:div :> text-node]                          (text children of a div) 
+  [:div :> any-node]                           (all children (including text nodes and comments) of a div)
+  {[:dt] [:dl]}                                (fragments starting by DT and ending at the *next* DD)    
+</pre>
+
+
+
 h2. Templates and snippets
 
 A snippet is a function that returns a seq of nodes, it can be used as a
@@ -99,31 +152,6 @@ nil, another node or an arbitrarily nested collection of nodes.
 
 Rules are applied top-down: the first rule transforms the whole tree and the
 resulting tree is passed to the next rules.
-
-
-h2. Selectors
-
-Enlive selectors can match either nodes or fragments (several adjacent nodes).   
-
-h3. Syntax
-
-See "syntax.html":http://enlive.cgrand.net/syntax.html
-
-Some examples:
-
-<pre>
-  Enlive                           CSS
-  =======================================================
-  [:div]                                       div
-  [:body :script]                              body script
-  #{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
-  [#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
-  [[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
-  [:div :> :*]                                 div > *
-  [:div :> text-node]                          (text children of a div) 
-  [:div :> any-node]                           (all children (including text nodes and comments) of a div)
-  {[:dt] [:dl]}                                (fragments starting by DT and ending at the *next* DD)    
-</pre>
 
 
 h2. Transformations
