@@ -82,8 +82,10 @@
   (seq nodes))
 
 (defmethod get-resource String
- [path loader]
-  (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
+  [path loader]  
+  (if-let [resource (.getResourceAsStream (clojure.lang.RT/baseLoader) path)]
+    (loader resource)
+    (throw (IllegalArgumentException. (str "Cannot find " path)))))
 
 (defmethod get-resource java.io.File
  [^java.io.File file loader]
