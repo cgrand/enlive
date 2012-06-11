@@ -27,7 +27,7 @@ Example:
   [:another :selector] another-transformation
   [:a :dependent :selector] yet-another-transformation
 </pre>
-If the first two tarnsformations are independent you can rewrite this code as:
+If the first two transformations are independent, you can rewrite this code as:
 <pre>
   :lockstep
   {[:a :selector] a-transformation
@@ -39,11 +39,11 @@ Transformations are now slightly restricted in their return values: a node or
 a collection of nodes (instead of freely nested collections of nodes).
 
 Dynamic selectors: selectors aren't compiled anymore. It means that you don't 
-need to wrap them in (selector ...) forms anymore nor to eval thme in the most
+need to wrap them in (selector ...) forms anymore nor to eval them in the most
 dynamic cases.
 
-Fragment selectors allow to select adjacent nodes. They are denoted by a map of
-two node selectors (eg @{[:h1] [:p]}@), bounds are inclusive and they select
+Fragment selectors allow you to select adjacent nodes. They are denoted by a map of
+two node selectors (e.g. @{[:h1] [:p]}@). Bounds are inclusive and they select
 the smallest matching fragments.   
 
 Transformations (the right-hand parts of rules) are now plain old closures. 
@@ -53,7 +53,7 @@ or a collection of nodes.
 Rules are applied top-down: the first rule transforms the whole tree and the 
 resulting tree is passed to the next rules.
 
-Nodes are transformed deep-first, that is: if a selector selects several nodes,
+Nodes are transformed depth-first, that is: if a selector selects several nodes,
 descendants are transformed first. Hence, when the transformation is applied to
 an ancestor, you can "see" the transformed descendants (but you can not see
 your transformed siblings).
@@ -120,15 +120,15 @@ Some examples:
 
 h2. Templates and snippets
 
-A snippet is a function that returns a seq of nodes, it can be used as a
+A snippet is a function that returns a seq of nodes. It can be used as a
 building block for more complex templates.
 
-A template is a function that returns a seq of string -- basically it's a
+A template is a function that returns a seq of strings -- basically it's a
 snippet whose output is serialized. Templates return a seq of strings to avoid
 building the whole string.
 
 Templates and snippets transform a source (specified as a path (to access 
-resources on the classpath), a File, a Reader, an InputStream, an URI, an URL,
+resources on the classpath), a File, a Reader, an InputStream, a URI, a URL,
 an element or a seq of nodes).
 
 
@@ -156,7 +156,7 @@ resulting tree is passed to the next rules.
 
 h2. Transformations
 
-A transformation is a function that returns either a node or collection of node.
+A transformation is a function that returns either a node or collection of nodes.
 
 Enlive defines several helper functions:
 <pre>
