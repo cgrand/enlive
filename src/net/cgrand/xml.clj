@@ -12,11 +12,23 @@
            (org.xml.sax.ext DefaultHandler2)
            (javax.xml.parsers SAXParser SAXParserFactory)))
 
-(defstruct element :tag :attrs :content)
+(defrecord Element [tag attrs content])
 
-(def tag (accessor element :tag))
-(def attrs (accessor element :attrs))
-(def content (accessor element :content))
+(defn init-element
+  ([] (init-element nil nil nil))
+  ([tag] (init-element tag nil nil))
+  ([tag attrs] (init-element tag attrs nil))
+  ([tag attrs content] (Element. tag attrs content)))
+
+(defn tag
+  [element]
+  (get element :tag))
+(defn attrs
+  [element]
+  (get element :attrs))
+(defn content
+  [element]
+  (get element :content))
 
 (def tag? :tag)
 (defn document? [x] (= :document (:type x)))
@@ -42,11 +54,11 @@
 (defn- handler [loc metadata]
   (proxy [DefaultHandler2] []
     (startElement [uri local-name q-name ^Attributes atts]
-      (let [e (struct element 
-                (keyword q-name)
-                (when (pos? (. atts (getLength)))
-                  (reduce #(assoc %1 (keyword (.getQName atts %2)) (.getValue atts (int %2))) 
-                    {} (range (.getLength atts)))))]
+      (let [e (init-element
+               (keyword q-name)
+               (when (pos? (. atts (getLength)))
+                 (reduce #(assoc %1 (keyword (.getQName atts %2)) (.getValue atts (int %2))) 
+                         {} (range (.getLength atts)))))]
         (swap! loc insert-element e))) 
     (endElement [uri local-name q-name]
       (swap! loc z/up))
@@ -81,7 +93,7 @@
 
 (defn parse
   "Parses and loads the source s, which can be a File, InputStream or
-  String naming a URI. Returns a seq of tree of the xml/element struct-map,
+  String naming a URI. Returns a seq of tree of the xml/element record,
   which has the keys :tag, :attrs, and :content. and accessor fns tag,
   attrs, and content. Other parsers can be supplied by passing
   startparse, a fn taking a source and a ContentHandler and returning
