@@ -1,4 +1,4 @@
-# Enlive
+# Enlive [![Travis CI status](https://secure.travis-ci.org/ddellacosta/enlive.png)](http://travis-ci.org/#!/ddellacosta/enlive/builds)
 
 Enlive is a selector-based (à la CSS) templating library for Clojure.
 
