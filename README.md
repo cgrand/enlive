@@ -12,21 +12,67 @@ In your leiningen project.clj:
 [enlive "1.0.1"]
 ```
 
-And to use in your code, (for example):
+## Basic Usage
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title></title>
+  <head>
+  <body>
+    <h1></h1>
+    <p class="content" id="content1"></p>
+    <p class="content" id="content2">I'm going to replace this.</p>
+  </body>
+</html>
+```
 
 ```clojure
-(ns my-code
-  (:require [some.lib :as lib]
-            ;; etc.
-            [net.cgrand.enlive-html :as e]))
+(ns enlive-test.core
+  (:require [net.cgrand.enlive-html :as e]))
+
+;; Loads the template file into enlive.
+;; (templates directory is in <project-root>/resources)
+(def tmpl
+  (e/html-resource "templates/test.html"))
+
+(defn -main
+  "Just processes a template and dumps it out."
+  [& args]
+  (print
+   (apply str
+          ;; Turn the nodes back into HTML:
+          (e/emit*
+           ;; Execute a set of transformations on the nodes
+           (e/at tmpl
+                 [:h1] (e/content "This is my heading!")
+                 [:#content2 > :*] (e/substitute "This is my new text.")
+                 [:.content] (e/append "This will be appended to both paragraphs."))))))
+```
+
+Voila!
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title></title>
+  </head><head>
+  </head><body>
+    <h1>This is my heading!</h1>
+    <p id="content1" class="content">This will be appended to both paragraphs.</p>
+    <p id="content2" class="content">I'm going to replace this.This will be appended to both paragraphs.</p>
+  </body>
+</html>
 ```
 
 ## Documentation
 
 * API Docs ()
 * Wiki (https://github.com/cgrand/enlive/wiki/_pages)
-* Some basic examples of syntax: http://enlive.cgrand.net/syntax.html
-* David Nolen wrote a nice tutorial: http://github.com/swannodette/enlive-tutorial/
+* Some examples of selector syntax: http://enlive.cgrand.net/syntax.html
+* A nice tutorial by David Nolen: http://github.com/swannodette/enlive-tutorial/
 * Another tutorial, by Brian Marick: https://github.com/cgrand/enlive/wiki/Table-and-Layout-Tutorial,-Part-1:-The-Goal
 
 ## Selectors
@@ -62,7 +108,7 @@ selectors in a set. `#{[:td :em] [:th :em]}` is going to match any `em` insides
 
 ### Syntax
 
-(See "syntax.html":http://enlive.cgrand.net/syntax.html)
+(See [syntax.html](http://enlive.cgrand.net/syntax.html])
 
 Some examples:
 
@@ -92,7 +138,7 @@ Templates and snippets transform a source (specified as a path (to access
 resources on the classpath), a File, a Reader, an InputStream, a URI, a URL,
 an element or a seq of nodes).
 
-## The `at` form
+### The `at` form
 
 The `at` form is the most important form in Enlive. There are implicit `at` 
 forms in `snippet` and `template`.  
@@ -107,7 +153,7 @@ forms in `snippet` and `template`.
 The right-hand value of a rule can be nil. It's the idiomatic way to remove an
 element.
 
-Transformations are closures which take one arg (the selected node) and return
+Transformations (described in the next section) are closures which take one arg (the selected node) and return
 nil, another node or an arbitrarily nested collection of nodes.
 
 Rules are applied top-down: the first rule transforms the whole tree and the
