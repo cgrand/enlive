@@ -29,6 +29,8 @@ An Enlive template has two parts: a HTML file and a `deftemplate` form somewhere
 </html>
 ```
 
+You read this template into the `deftemplate` form, and apply transformations on the nodes, which you can identify via selectors. Then you `emit*` the nodes back out into HTML:
+
 ```clojure
 (ns enlive-test.core
   (:require [net.cgrand.enlive-html :as e]))
