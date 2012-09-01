@@ -17,9 +17,10 @@ An Enlive template has two parts: a HTML file and a `deftemplate` form somewhere
 ```html
 <!DOCTYPE html>
 <html>
+  <!-- Enlive reads your comments too. -->
   <head>
     <title></title>
-  <head>
+  </head>
   <body>
     <h1></h1>
     <p class="content" id="content1"></p>
@@ -42,27 +43,29 @@ An Enlive template has two parts: a HTML file and a `deftemplate` form somewhere
   [& args]
   (print
    (apply str
-          ;; Turn the nodes back into HTML:
           (e/emit*
-           ;; Execute a set of transformations on the nodes
            (e/at tmpl
-                 [:h1] (e/content "This is my heading!")
-                 [:#content2 > :*] (e/substitute "This is my new text.")
-                 [:.content] (e/append "This will be appended to both paragraphs."))))))
+               [:h1]
+                 (e/content "This is my heading!")
+               [:#content2]
+                 (e/content "This is my new text...")
+               [:.content]
+                 (e/append "This will be appended to both paragraphs."))))))
 ```
 
-Voila!
+And, voila!
 
 ```html
 <!DOCTYPE html>
 <html>
+  <!-- Enlive reads your comments too. -->
   <head>
     <title></title>
-  </head><head>
-  </head><body>
+  </head>
+  <body>
     <h1>This is my heading!</h1>
     <p id="content1" class="content">This will be appended to both paragraphs.</p>
-    <p id="content2" class="content">I'm going to replace this.This will be appended to both paragraphs.</p>
+    <p id="content2" class="content">This is my new text...This will be appended to both paragraphs.</p>
   </body>
 </html>
 ```
