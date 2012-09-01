@@ -2,7 +2,7 @@
 
 Enlive is a selector-based (à la CSS) templating library for Clojure.
 
-An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
+An Enlive template has two parts: a HTML file and a `deftemplate` form somewhere in a clj file.
 
 ## Installation
 
@@ -17,71 +17,17 @@ And to use in your code, (for example):
 ```clojure
 (ns my-code
   (:require [some.lib :as lib]
-            ...  
-            [net.cgrand.enlive-html :as e]
-	    [some.other.lib :as otherlib]))
-...
+            ;; etc.
+            [net.cgrand.enlive-html :as e]))
 ```
 
 ## Documentation
 
-API Docs ()
-Wiki (https://github.com/cgrand/enlive/wiki/_pages)
-Some basic examples of syntax: http://enlive.cgrand.net/syntax.html
-David Nolen wrote a nice tutorial: http://github.com/swannodette/enlive-tutorial/
-Another tutorial, by Brian Marick: https://github.com/cgrand/enlive/wiki/Table-and-Layout-Tutorial,-Part-1:-The-Goal
-
-## What's new in Enlive?
-
-(most recent first)
-
-By default selector-transformation pairs are run sequentially. When you know
-that several transformations are independent, you can now specify (as an 
-optimization) to process them in lockstep. Note that this doesn't work with
-fragments selectors.
-
-Example:
-
-```clojure
-[:a :selector] a-transformation
-[:another :selector] another-transformation
-[:a :dependent :selector] yet-another-transformation
-```
-If the first two tarnsformations are independent you can rewrite this code as:
-
-```clojure
-:lockstep
-{[:a :selector] a-transformation
-[:another :selector] another-transformation}
-[:a :dependent :selector] yet-another-transformation
-```
-Transformations are now slightly restricted in their return values: a node or 
-a collection of nodes (instead of freely nested collections of nodes).
-
-Dynamic selectors: selectors aren't compiled anymore. It means that you don't 
-need to wrap them in (selector ...) forms anymore nor to eval thme in the most
-dynamic cases.
-
-Fragment selectors allow to select adjacent nodes. They are denoted by a map of
-two node selectors (eg @{[:h1] [:p]}@), bounds are inclusive and they select
-the smallest matching fragments.   
-
-Transformations (the right-hand parts of rules) are now plain old closures. 
-These functions take one arg (the selected node) and return nil, another node 
-or a collection of nodes.
-
-Rules are applied top-down: the first rule transforms the whole tree and the 
-resulting tree is passed to the next rules.
-
-Nodes are transformed deep-first, that is: if a selector selects several nodes,
-descendants are transformed first. Hence, when the transformation is applied to
-an ancestor, you can "see" the transformed descendants (but you can not see
-your transformed siblings).
-
-
-     /B                                                                             /(T B)
-    A    if A and B are selected and transformed by T the the resulting tree is (T A      )
-    \C                                                                              \C
+* API Docs ()
+* Wiki (https://github.com/cgrand/enlive/wiki/_pages)
+* Some basic examples of syntax: http://enlive.cgrand.net/syntax.html
+* David Nolen wrote a nice tutorial: http://github.com/swannodette/enlive-tutorial/
+* Another tutorial, by Brian Marick: https://github.com/cgrand/enlive/wiki/Table-and-Layout-Tutorial,-Part-1:-The-Goal
 
 ## Selectors
 
@@ -92,37 +38,37 @@ Enlive selectors can match either nodes or fragments (several adjacent nodes).
 At the core, *every selector is a vector*. The items of this vector are called
 *steps*.
 
-A step is a predicate, for example @:h1@, @:p.some-class@ or even 
-@(attr? :lang)@. 
+A step is a predicate, for example `:h1`, `:p.some-class` or even 
+`(attr? :lang)`.
 
 To select elements which match several predicates, you need to group
 predicates into a vector: *inside steps, vectors mean "and"*. This may seem
 confusing but the rule is simple: the outer-most vector hierarchically 
 chains steps, all other vectors denote intersection (and) between steps.
 
-So @[:p (attr? :lang)]@ is going to match any elements with a @lang@ attribute
-inside a @p@ element. On the other hand, @[:p (attr? :lang)]@ is going to match
-any @p@ with a @lang@ attribute.
+So `[:p (attr? :lang)]` is going to match any elements with a `lang` attribute
+inside a `p` element. On the other hand, `[:p (attr? :lang)]` is going to match
+any `p` with a `lang` attribute.
 
 Similarly, sets group predicates in an union. Hence *inside steps, sets mean
-"or"*. So @[#{:div.class1 :div.class2}]@ match every @div@ which has either 
-@class1@ or @class2@. This can alternatively be written 
-as @[[:div #{:.class1 .class2}]]@. Indeed you can have nested "ors" and "ands"
+"or."* So `[#{:div.class1 :div.class2}]` match every `div` which has either 
+`class1` or `class2`. This can alternatively be written 
+as `[[:div #{:.class1 .class2}]]`. Indeed you can have nested "ors" and "ands"
 which means nested sets and vectors.
 
 At the top level you can have a big "or" between selectors by wrapping several 
-selectors in a set. @#{[:td :em] [:th :em]}@ is going to match any @em@ insides
- either a @th@ or a @td@. This is equivalent to @[#{:td :th} :em]@.
+selectors in a set. `#{[:td :em] [:th :em]}` is going to match any `em` insides
+ either a `th` or a `td`. This is equivalent to `[#{:td :th} :em]`.
 
 ### Syntax
 
-See "syntax.html":http://enlive.cgrand.net/syntax.html
+(See "syntax.html":http://enlive.cgrand.net/syntax.html)
 
 Some examples:
 
 ```clojure
-Enlive                           CSS
-=======================================================
+Enlive                                       CSS
+========================================================================================================
 [:div]                                       div
 [:body :script]                              body script
 #{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li 
@@ -135,27 +81,27 @@ Enlive                           CSS
 ```
 ## Templates and snippets
 
-A snippet is a function that returns a seq of nodes, it can be used as a
+A snippet is a function that returns a seq of nodes. It can be used as a
 building block for more complex templates.
 
-A template is a function that returns a seq of string -- basically it's a
+A template is a function that returns a seq of strings--basically it's a
 snippet whose output is serialized. Templates return a seq of strings to avoid
 building the whole string.
 
 Templates and snippets transform a source (specified as a path (to access 
-resources on the classpath), a File, a Reader, an InputStream, an URI, an URL,
+resources on the classpath), a File, a Reader, an InputStream, a URI, a URL,
 an element or a seq of nodes).
 
-## The @at@ form
+## The `at` form
 
-The @at@ form is the most important form in Enlive. There are implicit @at@ 
-forms in @snippet@ and @template@.  
+The `at` form is the most important form in Enlive. There are implicit `at` 
+forms in `snippet` and `template`.  
 
 ```clojure
-  (at a-node
-    [:a :selector] a-transformation
-    [:another :selector] another-transformation
-    ...)
+(at a-node
+  [:a :selector] a-transformation
+  [:another :selector] another-transformation
+  ... )
 ```
 
 The right-hand value of a rule can be nil. It's the idiomatic way to remove an
@@ -169,9 +115,11 @@ resulting tree is passed to the next rules.
 
 ## Transformations
 
-A transformation is a function that returns either a node or collection of node.
+Transformations (the right-hand parts of rules) are plain old closures. 
+These functions take one arg (the selected node) and return nil, another node 
+or a collection of nodes.
 
-Enlive defines several helper functions:
+Enlive defines many transformation helper functions:
 
 ```clojure
   content            (content "xyz" a-node "abc")             
@@ -194,6 +142,61 @@ Enlive defines several helper functions:
   substitute         (substitute "xyz" a-node "abc")
   move               (move [:.footnote] [:#footnotes] content)
 ```
+
+By default selector-transformation pairs are run sequentially. When you know
+that several transformations are independent, you can now specify (as an 
+optimization) to process them in lockstep. **Note that this doesn't work with
+fragment selectors.**
+
+Example:
+
+```clojure
+[:a :selector] a-transformation
+[:another :selector] another-transformation
+[:a :dependent :selector] yet-another-transformation
+```
+If the first two transformations are independent, you can rewrite this code as:
+
+```clojure
+:lockstep
+{ [:a :selector] a-transformation
+  [:another :selector] another-transformation }
+[:a :dependent :selector] yet-another-transformation
+```
+Transformations are now slightly restricted in their return values: a node or 
+a collection of nodes (instead of freely nested collections of nodes).
+
+### Dynamic selectors
+
+Selectors aren't compiled anymore. It means that you don't 
+need to wrap them in (selector ...) forms anymore nor to eval them in the most
+dynamic cases.
+
+### Fragment selectors
+
+Fragment selectors allow to select adjacent nodes. They are denoted by a map of
+two node selectors (e.g. `{[:h1] [:p]}`). Bounds are inclusive and they select
+the smallest matching fragments.   
+
+Rules are applied top-down: the first rule transforms the whole tree and the 
+resulting tree is passed to the next rules.
+
+Nodes are transformed depth-first, that is: if a selector selects several nodes,
+descendants are transformed first. Hence, when the transformation is applied to
+an ancestor, you can "see" the transformed descendants (but you can not see
+your transformed siblings).
+
+Take this node tree:
+
+      A
+     / \
+    C   B
+
+If A and B are selected and transformed by T then the resulting tree is
+
+    (T A)
+     / \
+    C   (T B)
 
 ## Where do I get support?
 
