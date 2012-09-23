@@ -59,9 +59,26 @@
   (with-open [^java.io.Closeable stream stream]
     (xml/parse (org.xml.sax.InputSource. stream))))
 
-(defmulti ^{:arglists '([resource loader])} get-resource 
- "Loads a resource, using the specified loader. Returns a seq of nodes." 
- (fn [res _] (type res)))
+(defprotocol Resource
+  (get-resource [resource loader] "Loads a resource, using the specified loader. Returns a seq of nodes."))
+
+(extend-protocol Resource
+  clojure.lang.IPersistentMap
+  (get-resource [xml-data _] (list xml-data))
+  clojure.lang.IPersistentCollection
+  (get-resource [nodes _] (seq nodes))
+  String
+  (get-resource [path loader] (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
+  java.io.File
+  (get-resource [^java.io.File file loader] (loader (java.io.FileInputStream. file)))
+  java.io.Reader
+  (get-resource [reader loader] (loader reader))
+  java.io.InputStream
+  (get-resource [stream loader] (loader stream))
+  java.net.URL
+  (get-resource [^java.net.URL url loader] (loader (.getContent url)))
+  java.net.URI
+  (get-resource [^java.net.URI uri loader] (get-resource (.toURL uri) loader)))
 
 (defn html-resource 
  "Loads an HTML resource, returns a seq of nodes."
@@ -72,39 +89,6 @@
  "Loads an XML resource, returns a seq of nodes."
  [resource]
   (get-resource resource load-xml-resource))
-
-(defmethod get-resource clojure.lang.IPersistentMap
- [xml-data _]
-  (list xml-data))
-
-(defmethod get-resource clojure.lang.IPersistentCollection
- [nodes _]
-  (seq nodes))
-
-(defmethod get-resource String
- [path loader]
-  (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
-
-(defmethod get-resource java.io.File
- [^java.io.File file loader]
-  (loader (java.io.FileInputStream. file)))
-
-(defmethod get-resource java.io.Reader
- [reader loader]
-  (loader reader))
-
-(defmethod get-resource java.io.InputStream
- [stream loader]
-  (loader stream))
-
-(defmethod get-resource java.net.URL
- [^java.net.URL url loader]
-  (loader (.getContent url)))
-
-(defmethod get-resource java.net.URI
- [^java.net.URI uri loader]
-  (get-resource (.toURL uri) loader))
-
 
 (defn- xml-str
  "Like clojure.core/str but escapes < > and &."
