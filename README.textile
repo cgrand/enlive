@@ -83,7 +83,7 @@ confusing but the rule is simple: the outer-most vector hierarchically
 chains steps, all other vectors denote intersection (and) between steps.
 
 So @[:p (attr? :lang)]@ is going to match any elements with a @lang@ attribute
-inside a @p@ element. On the other hand, @[:p (attr? :lang)]@ is going to match
+inside a @p@ element. On the other hand, @[[:p (attr? :lang)]]@ is going to match
 any @p@ with a @lang@ attribute.
 
 Similarly, sets group predicates in an union. Hence *inside steps, sets mean
