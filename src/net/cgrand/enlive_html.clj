@@ -756,7 +756,7 @@
 (defn- is-first-segment? [^String s ^String segment]
   (and s 
     (.startsWith s segment)
-    (= \- (.charAt s (count segment)))))
+    (or (= (count s) (count segment)) (= \- (.charAt s (count segment))))))
              
 (def ^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS |= ."}
  attr|=           
