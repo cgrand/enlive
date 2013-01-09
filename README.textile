@@ -27,7 +27,7 @@ Example:
   [:another :selector] another-transformation
   [:a :dependent :selector] yet-another-transformation
 </pre>
-If the first two tarnsformations are independent you can rewrite this code as:
+If the first two transformations are independent you can rewrite this code as:
 <pre>
   :lockstep
   {[:a :selector] a-transformation
@@ -103,7 +103,7 @@ See "syntax.html":http://enlive.cgrand.net/syntax.html
 Some examples:
 
 <pre>
-  Enlive                           CSS
+  Enlive                                       CSS
   =======================================================
   [:div]                                       div
   [:body :script]                              body script
@@ -144,11 +144,11 @@ forms in @snippet@ and @template@.
     ...)
 </pre>
 
-The right-hand value of a rule can be nil. It's the idiomatic way to remove an
+The right-hand value of a rule can be @nil@. It's the idiomatic way to remove an
 element.
 
 Transformations are closures which take one arg (the selected node) and return
-nil, another node or an arbitrarily nested collection of nodes.
+@nil@, another node or an arbitrarily nested collection of nodes.
 
 Rules are applied top-down: the first rule transforms the whole tree and the
 resulting tree is passed to the next rules.
