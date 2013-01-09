@@ -265,3 +265,8 @@
   (is-same "<div><div class='bar'><div>"
     (sniptest "<div><div><div>"
       [:> :div] (transform-content [:> :div] (add-class "bar")))))
+
+(deftest case-insensitive-doctype-test
+  (deftemplate case-insensitive-doctype-template "resources/templates/doctype_case.html"
+    [])
+  (.startsWith "<!DOCTYPE" (apply str (case-insensitive-doctype-template))))
