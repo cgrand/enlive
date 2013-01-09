@@ -467,12 +467,6 @@
     :else ;fragment
       (transform-fragment nodes selector transformation)))
 
-(defn- transform-node [nodes selector transformation]
-  (let [transformation (or transformation (constantly nil))
-        transformations (constantly transformation)  
-        state (automaton selector)]
-    (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
-
 (defn lockstep-transform [nodes transformations-map]
   (let [state (lockstep-automaton (keys transformations-map))
         transformations (vec (map #(or % (constantly nil)) 
