@@ -1,4 +1,5 @@
-h1. Enlive
+h1. Enlive "!https://travis-ci.org/cgrand/enlive.png!":https://travis-ci.org/cgrand/enlive
+
 
 Enlive is a selector-based (à la CSS) templating library for Clojure. 
 
