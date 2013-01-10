@@ -66,6 +66,13 @@
     false (attr= :href "http://cgrand.net/" :title "homepage")
     true (attr= :href "http://cgrand.net/" :title "home")))
 
+(deftest attr|=-test
+  (are [_1 _2] (test-step _1 _2 (elt :a {:href "http://cgrand.net/" :hreflang "de" :hreflang2 "en-en"}))
+    false (attr|= :hreflang "en")
+    true (attr|= :hreflang "de")
+    false (attr|= :hreflang2 "fr")
+    true (attr|= :hreflang2 "en")))
+
 (deftest attr-starts-test
   (are [_1 _2] (test-step _1 _2 (elt :a {:href "http://cgrand.net/" :title "home"}))
     true (attr-starts :href "http://cgr")
