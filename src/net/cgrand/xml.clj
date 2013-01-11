@@ -19,8 +19,13 @@
 (def content (accessor element :content))
 
 (def tag? :tag)
-(defn document? [x] (= :document (:type x)))
+(defn- document? 
+  "Document nodes are a parsing impelentation details and should never leak
+   outside of it."
+  [x] (= :document (:type x)))
+
 (defn comment? [x] (= :comment (:type x)))
+(defn dtd? [x] (= :dtd (:type x)))
 
 (defn xml-zip 
  "Returns a zipper for xml elements (as from xml/parse),
@@ -57,7 +62,7 @@
     (comment [ch start length]
       (swap! loc z/append-child {:type :comment :data (String. ^chars ch (int start) (int length))}))
     (startDTD [name publicId systemId]
-      (swap! metadata assoc ::dtd [name publicId systemId]))
+      (swap! loc z/append-child {:type :dtd :data [name publicId systemId]}))
     (resolveEntity
       ([name publicId baseURI systemId]
         (doto (org.xml.sax.InputSource.)

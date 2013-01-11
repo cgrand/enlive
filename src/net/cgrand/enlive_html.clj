@@ -141,30 +141,30 @@
 
 (defn- emit-comment [node etc]
   (list* "<!--" (str (:data node)) "-->" etc))
-  
+
+(defn- emit-dtd [{[name public-id system-id] :data} etc]
+  (cons 
+    (cond
+      public-id 
+      (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n")
+      system-id   
+      (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
+      :else
+      (str "<!DOCTYPE " name ">\n"))
+    etc))
+
 (defn- annotations [x]
   (-> x meta ::annotations))
 
 (defn- emit [node etc]
   (cond 
     (xml/tag? node) ((:emit (annotations node) emit-tag) node etc)
-    (xml/comment? node) (emit-comment node etc) 
+    (xml/comment? node) (emit-comment node etc)
+    (xml/dtd? node) (emit-dtd node etc)
     :else (cons (xml-str node) etc)))
-
-(defn- emit-root [node etc]
-  (if-let [[name public-id system-id] (-> node meta ::xml/dtd)]
-    (let [preamble (cond
-                     public-id 
-                       (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n")
-                     system-id   
-                       (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
-                     :else
-                       (str "<!DOCTYPE " name ">\n"))]
-      (cons preamble (emit node etc)))
-    (emit node etc)))
   
 (defn emit* [node-or-nodes]
-  (if (xml/tag? node-or-nodes) (emit-root node-or-nodes nil) (mapknit emit-root node-or-nodes)))
+  (if (xml/tag? node-or-nodes) (emit node-or-nodes nil) (mapknit emit node-or-nodes)))
 
 (defn- tag-emitter [{:keys [tag content attrs] :as node}]
   (let [name (name tag)
