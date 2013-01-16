@@ -907,3 +907,32 @@
  "A handy macro for experimenting at the repl" 
  [source-string & forms]
   `(sniptest* (html-snippet ~source-string) (transformation ~@forms))) 
+
+
+;; hiccup-style inline fragments
+(defn- nodify [node-spec]
+  (cond
+    (string? node-spec) node-spec
+    (vector? node-spec) 
+      (let [[tag & [m & ms :as more]] node-spec 
+            [tag-name & segments] (.split (name tag) "(?=[#.])")
+            id (some (fn [^String seg]
+                       (when (= \# (.charAt seg 0)) (subs seg 1))) segments)
+            classes (keep (fn [^String seg]
+                            (when (= \. (.charAt seg 0)) (subs seg 1)))
+                          segments)
+            node {:tag (keyword tag-name) :attrs (if (map? m) m {})
+                  :content (flatmap nodify (if (map? m) ms more))}
+            node (if id (assoc-in node [:attrs :id] id) node)
+            node (if (seq classes) 
+                   (assoc-in node [:attrs :class]
+                             (apply str (interpose \space classes)))
+                   node)]
+        node)
+    (sequential? node-spec) (flatmap nodify node-spec)
+    :else (str node-spec))) 
+
+(defn html
+  "Allows to define inline fragments with a hiccup-like syntax."
+  [& nodes-specs]
+  (flatmap nodify nodes-specs))

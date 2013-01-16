@@ -270,3 +270,18 @@
   (deftemplate case-insensitive-doctype-template "resources/templates/doctype_case.html"
     [])
   (.startsWith "<!DOCTYPE" (apply str (case-insensitive-doctype-template))))
+
+(deftest hiccup-like
+  (is-same "<div><b>world"
+    (sniptest "<div>"
+      [:div] (content (html [:b "world"]))))
+  (is-same "<div><b id=foo>world"
+    (sniptest "<div>"
+      [:div] (content (html [:b#foo "world"]))))
+  (is-same "<div><a id=foo class=\"link home\" href=\"http://clojure.org/\">world"
+    (sniptest "<div>"
+      [:div] (content (html [:a.link#foo.home {:href "http://clojure.org/"}
+                             "world"]))))
+  (is-same "<div><ul><li>a<li>b<li>c"
+    (sniptest "<div>"
+      [:div] (content (html [:ul (for [s ["a" "b" "c"]] [:li s])])))))
