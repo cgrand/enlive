@@ -564,10 +564,18 @@
  [source selector args & forms]
   `(snippet* (select (html-resource ~source) ~selector) ~args ~@forms))  
 
-(defmacro template 
- "A template returns a seq of string."
- ([source args & forms]
-   `(comp emit* (snippet* (html-resource ~source) ~args ~@forms))))
+(defmacro template
+  "A template returns a seq of string."
+  [source argv-or-first-body & fn-tail]
+  (if-not (list? argv-or-first-body)
+    `(comp emit* (snippet* (html-resource ~source) ~argv-or-first-body ~@fn-tail))
+    (let [bodies (cons argv-or-first-body fn-tail)]
+      `(let [~'fns (map (fn [[~'argv & ~'forms]]
+                          {:argv ~'argv :fn `(comp emit* (snippet* (html-resource ~~source) ~~'argv ~@~'forms))})
+                        '~bodies)]
+         (eval (cons `fn (map (fn [{~'argv :argv ~'fn :fn}]
+                                (list ~'argv (apply list ~'fn ~'argv)))
+                              ~'fns)))))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
