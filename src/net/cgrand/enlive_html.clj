@@ -11,6 +11,7 @@
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
   (:require [net.cgrand.xml :as xml])
+  (:require [clojure.string :as str])
   (:require [clojure.zip :as z]))
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
@@ -246,7 +247,7 @@
   #(let [n (z/node %)] (and (string? n) (f n))))
 
 (defn re-pred 
- "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
+ "Turns a regex into a predicate-step on text nodes usable in selectors."
  [re]
   (text-pred #(re-matches re %)))
 
@@ -616,6 +617,25 @@
    #(array-map :tag tag :attrs attrs :content (as-nodes %))))
 
 (def unwrap :content)
+
+(defn replace-vars
+  "By default, takes a map (or function) of keywords to strings and replaces
+   all occurences of ${foo} by (m :foo) in text nodes and attributes.
+   Does not recurse, you have to pair it with an appropriate selector.
+   re is a regex whose first group will be passed to (comp m f) and f by
+   default is #'keyword."
+  ([m] (replace-vars #"\$\{\s*(.*\S)\s*}" m))
+  ([re m] (replace-vars re m keyword))
+  ([re m f]
+    (let [replacement (comp m f second)
+          substitute-vars #(str/replace % re replacement)]
+      (fn [node]
+        (cond
+          (string? node) (substitute-vars node)
+          (xml/tag? node) (assoc node :attrs 
+                            (into {} (for [[k v] (:attrs node)]
+                                       [k (substitute-vars v)])))
+          :else node)))))
 
 (defn set-attr
  "Assocs attributes on the selected element."

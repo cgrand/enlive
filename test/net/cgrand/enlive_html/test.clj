@@ -266,9 +266,10 @@
     (sniptest "<div><div><div>"
       [:> :div] (transform-content [:> :div] (add-class "bar")))))
 
+(deftemplate case-insensitive-doctype-template "resources/templates/doctype_case.html"
+  [])
+
 (deftest case-insensitive-doctype-test
-  (deftemplate case-insensitive-doctype-template "resources/templates/doctype_case.html"
-    [])
   (.startsWith "<!DOCTYPE" (apply str (case-insensitive-doctype-template))))
 
 (deftest hiccup-like
@@ -285,3 +286,9 @@
   (is-same "<div><ul><li>a<li>b<li>c"
     (sniptest "<div>"
       [:div] (content (html [:ul (for [s ["a" "b" "c"]] [:li s])])))))
+
+(deftest replace-vars-test
+  (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
+    (sniptest "<div><<h1>untouched ${name}<p class=\"${class}\">hello ${name}"
+      #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"}))))
+
