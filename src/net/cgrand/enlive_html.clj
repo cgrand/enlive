@@ -555,11 +555,18 @@
 (defmacro lockstep-transformation
  [& forms] `(fn [node#] (at node# :lockstep ~(apply array-map forms))))
 
-(defmacro snippet* [nodes args & forms]
-  `(let [nodes# (map annotate ~nodes)]
-     (fn ~args
-       (doall (flatmap (transformation ~@forms) nodes#)))))
-    
+(defn- bodies [forms]
+  (if (vector? (first forms))
+    (list forms)
+    forms))
+
+(defmacro snippet* [nodes & body]
+  (let [nodesym (gensym "nodes")]
+    `(let [~nodesym (map annotate ~nodes)]
+       (fn ~@(for [[args & forms] (bodies body)]
+           `(~args
+              (doall (flatmap (transformation ~@forms) ~nodesym))))))))
+
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
