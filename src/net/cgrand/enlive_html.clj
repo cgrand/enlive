@@ -47,14 +47,22 @@
     (.setProperty "http://xml.org/sax/properties/lexical-handler" ch)
     (.parse s)))
 
-(defn- load-html-resource 
+(defn tagsoup-parser 
  "Loads and parse an HTML resource and closes the stream."
  [stream]
   (filter map?
     (with-open [^java.io.Closeable stream stream]
       (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
 
-(defn- load-xml-resource 
+(def ^{:dynamic true} *parser* tagsoup-parser)
+
+(defn set-ns-parser!
+  "Sets the default parser to use by all templates and snippets in the
+   declaring ns."
+  [parser]
+  (alter-meta! *ns* assoc ::parser parser))
+
+(defn xml-parser 
  "Loads and parse a XML resource and closes the stream."
  [stream] 
   (with-open [^java.io.Closeable stream stream]
@@ -66,13 +74,16 @@
 
 (defn html-resource 
  "Loads an HTML resource, returns a seq of nodes."
- [resource]
-  (get-resource resource load-html-resource))
+ ([resource]
+   (get-resource resource *parser*))
+ ([resource options]
+   (binding [*parser* (or (:parser options) *parser*)]
+     (html-resource resource))))
 
 (defn xml-resource 
  "Loads an XML resource, returns a seq of nodes."
  [resource]
-  (get-resource resource load-xml-resource))
+  (get-resource resource xml-parser))
 
 (defmethod get-resource clojure.lang.IPersistentMap
  [xml-data _]
@@ -555,11 +566,17 @@
 (defmacro lockstep-transformation
  [& forms] `(fn [node#] (at node# :lockstep ~(apply array-map forms))))
 
+(defn- pad-unless [pred value s] 
+  (if (pred (first s))
+    (seq s)
+    (cons value s)))
+
 (defn- bodies [forms]
   (if (vector? (first forms))
     (list forms)
     forms))
 
+;; note: options may be triggered by :options as the 1st arg
 (defmacro snippet* [nodes & body]
   (let [nodesym (gensym "nodes")]
     `(let [~nodesym (map annotate ~nodes)]
@@ -570,18 +587,26 @@
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
-  `(snippet* (select (html-resource ~source) ~selector) ~args ~@forms))  
+  (let [[options source selector args & forms]
+         (pad-unless map? {} (list* source selector args forms))]
+    `(let [opts# (merge {:parser (::parser (meta (find-ns '~(ns-name *ns*))))}
+                   ~options)]
+       (snippet* (select (html-resource ~source opts#) ~selector) ~args ~@forms))))
 
 (defmacro template 
  "A template returns a seq of string."
  ([source args & forms]
-   `(comp emit* (snippet* (html-resource ~source) ~args ~@forms))))
+   (let [[options source & body] 
+           (pad-unless map? {} (list* source args forms))]
+     `(let [opts# (merge {:parser (::parser (meta (find-ns '~(ns-name *ns*))))}
+                    ~options)]
+        (comp emit* (snippet* (html-resource ~source opts#) ~@body))))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
  [name source selector args & forms]
  `(def ~name (snippet ~source ~selector ~args ~@forms)))
-   
+
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings." 
  [name source args & forms] 
