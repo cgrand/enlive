@@ -36,7 +36,11 @@
     
 ;; I/O stuff
 
-(def ^{:dynamic true} *parser* tagsoup/parser)
+(def ^{:dynamic true} *options* {:parser tagsoup/parser})
+
+(defmacro with-options [m & body]
+  `(binding [*options* (merge *options* ~m)]
+     ~@body))
 
 (defn ns-options 
   ([] (ns-options *ns*))
@@ -79,9 +83,9 @@
 (defn html-resource 
  "Loads an HTML resource, returns a seq of nodes."
  ([resource]
-   (get-resource resource *parser*))
+   (get-resource resource (:parser *options*)))
  ([resource options]
-   (binding [*parser* (or (:parser options) *parser*)]
+   (with-options options
      (html-resource resource))))
 
 (defn xml-resource 
