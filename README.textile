@@ -3,6 +3,10 @@ h1. Enlive "!https://travis-ci.org/cgrand/enlive.png!":https://travis-ci.org/cgr
 
 Enlive is a selector-based (à la CSS) templating library for Clojure. 
 
+<pre>
+  [enlive "1.1.1"]
+</pre>
+
 An Enlive template has two parts: a HTML file and a @deftemplate@ form somewhere in a clj file.
 
 David Nolen wrote a "nice tutorial":http://github.com/swannodette/enlive-tutorial/
@@ -16,6 +20,44 @@ h2. Where do I get support?
 h2. What's new in Enlive?
 
 (most recent first)
+
+h3. Pluggable parsers! (1.1.1)
+
+The @*parser*@ dynamic var controls the parser to be used by @html-resource@ at 
+runtime. (or you can pass @{:parser XXX}@ as an additional arg).
+
+For templates and snippets whose sources are not read dynamically, you can opt for another parser either locally:
+
+<pre>
+(deftemplate ugh {:parser xml-parser}
+  (java.io.StringReader. "<a><div>hello</div></a>")
+  [])
+</pre>
+
+or globally *for the declaring ns*:
+
+<pre>
+(set-ns-parser! xml-parser)
+</pre>
+
+A parser is a function from InputStream to nodes. tagsoup-parser and xml-parser are the two builtin ones.
+
+h3. @${vars}@ substitutions (1.1.1)
+
+The following selector + function is going to replace any @${var}@ in text *and attributes* by the value found in the map (or any function).
+ 
+<pre>
+[:#container any-node] (replace-vars {:name "world" :class "hello"})
+</pre>
+
+h3. hiccup-style helper (1.1.0)
+
+<pre>
+(content (html [:h3#hello "Hello worls"]))
+</pre>
+
+
+h3. older stuff
 
 By default selector-transformation pairs are run sequentially. When you know
 that several transformations are independent, you can now specify (as an 
