@@ -1,4 +1,4 @@
-;   Copyright (c) Christophe Grand, 2009. All rights reserved.
+;   Copyright (c) Christophe Grand, 2009-2013. All rights reserved.
 
 ;   The use and distribution terms for this software are covered by the
 ;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -10,6 +10,7 @@
 
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
+  (:require [net.cgrand.tagsoup :as tagsoup])
   (:require [net.cgrand.jsoup :as jsoup])
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.string :as str])
@@ -33,29 +34,9 @@
   (lazy-seq (when (pred x) (cons x (iterate-while f (f x) pred)))))) 
   
     
-;; HTML I/O stuff
+;; I/O stuff
 
-(defn- startparse-tagsoup [s ch]
-  (doto (org.ccil.cowan.tagsoup.Parser.)
-    (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/default-attributes" false)
-    (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/cdata-elements" true)
-    (.setFeature "http://www.ccil.org/~cowan/tagsoup/features/ignorable-whitespace" true)
-    (.setContentHandler ch)
-    (.setProperty "http://www.ccil.org/~cowan/tagsoup/properties/auto-detector"
-      (proxy [org.ccil.cowan.tagsoup.AutoDetector] []
-        (autoDetectingReader [^java.io.InputStream is]
-          (java.io.InputStreamReader. is "UTF-8"))))
-    (.setProperty "http://xml.org/sax/properties/lexical-handler" ch)
-    (.parse s)))
-
-(defn tagsoup-parser 
- "Loads and parse an HTML resource and closes the stream."
- [stream]
-  (filter map?
-    (with-open [^java.io.Closeable stream stream]
-      (xml/parse (org.xml.sax.InputSource. stream) startparse-tagsoup))))
-
-(def ^{:dynamic true} *parser* tagsoup-parser)
+(def ^{:dynamic true} *parser* tagsoup/parser)
 
 (defn set-ns-parser!
   "Sets the default parser to use by all templates and snippets in the
