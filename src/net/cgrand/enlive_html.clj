@@ -38,11 +38,27 @@
 
 (def ^{:dynamic true} *parser* tagsoup/parser)
 
+(defn ns-options 
+  ([] (ns-options *ns*))
+  ([ns] (::options (meta ns) {})))
+
+(defn set-ns-options!
+  "Sets the default options to use by all templates and snippets in the
+   declaring ns."
+  [options]
+  (alter-meta! *ns* assoc ::options options))
+
+(defn alter-ns-options!
+  "Sets the default options to use by all templates and snippets in the
+   declaring ns."
+  [f & args]
+  (set-ns-options! (apply f (ns-options) args)))
+
 (defn set-ns-parser!
   "Sets the default parser to use by all templates and snippets in the
    declaring ns."
   [parser]
-  (alter-meta! *ns* assoc ::parser parser))
+  (alter-ns-options! assoc :parser parser))
 
 (defn xml-parser 
  "Loads and parse a XML resource and closes the stream."
@@ -577,7 +593,7 @@
  [source selector args & forms]
   (let [[options source selector args & forms]
          (pad-unless map? {} (list* source selector args forms))]
-    `(let [opts# (merge {:parser (::parser (meta (find-ns '~(ns-name *ns*))))}
+    `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
                    ~options)]
        (snippet* (select (html-resource ~source opts#) ~selector) ~args ~@forms))))
 
@@ -586,7 +602,7 @@
  ([source args & forms]
    (let [[options source & body] 
            (pad-unless map? {} (list* source args forms))]
-     `(let [opts# (merge {:parser (::parser (meta (find-ns '~(ns-name *ns*))))}
+     `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
                     ~options)]
         (comp emit* (snippet* (html-resource ~source opts#) ~@body))))))
 
