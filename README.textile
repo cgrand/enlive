@@ -40,12 +40,12 @@ or globally *for the declaring ns*:
 (set-ns-parser! xml-parser)
 </pre>
 
-A parser is a function from InputStream to nodes. tagsoup-parser and xml-parser are the two builtin ones.
+A parser is a function from InputStream to nodes. xml-parser, @net.cgrand.tagsoup/parser@ and @net.cgrand.jsoup/parser@ are the three builtin ones.
 
 h3. @${vars}@ substitutions (1.1.1)
 
 The following selector + function is going to replace any @${var}@ in text *and attributes* by the value found in the map (or any function).
- 
+
 <pre>
 [:#container any-node] (replace-vars {:name "world" :class "hello"})
 </pre>
