@@ -11,7 +11,6 @@
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
   (:require [net.cgrand.tagsoup :as tagsoup])
-  (:require [net.cgrand.jsoup :as jsoup])
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.string :as str])
   (:require [clojure.zip :as z]))
@@ -69,12 +68,6 @@
  [stream] 
   (with-open [^java.io.Closeable stream stream]
     (xml/parse (org.xml.sax.InputSource. stream))))
-
-(defn jsoup-parser
-  "Parse a HTML document stream into Enlive nodes using JSoup."
-  [stream]
-  (with-open [^java.io.Closeable stream stream]
-    (jsoup/parse stream)))
 
 (defmulti ^{:arglists '([resource loader])} get-resource 
  "Loads a resource, using the specified loader. Returns a seq of nodes." 
