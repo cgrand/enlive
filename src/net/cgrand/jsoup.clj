@@ -52,7 +52,8 @@
   (->nodes [_] nil))
 
 
-(defn parse
-  "Parse a document into nodes using JSoup"
-  [s]
-  (->nodes (Jsoup/parse s "UTF-8" "")))
+(defn parser
+  "Parse a HTML document stream into Enlive nodes using JSoup."
+  [stream]
+  (with-open [^java.io.Closeable stream stream]
+    (->nodes (Jsoup/parse stream "UTF-8" ""))))
