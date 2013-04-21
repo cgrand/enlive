@@ -657,7 +657,7 @@
    Does not recurse, you have to pair it with an appropriate selector.
    re is a regex whose first group will be passed to (comp m f) and f by
    default is #'keyword."
-  ([m] (replace-vars #"\$\{\s*(.*\S)\s*}" m))
+  ([m] (replace-vars #"\$\{\s*(.*?\S)\s*}" m))
   ([re m] (replace-vars re m keyword))
   ([re m f]
     (let [replacement (comp m f second)
