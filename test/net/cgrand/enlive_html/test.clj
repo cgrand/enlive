@@ -290,5 +290,7 @@
 (deftest replace-vars-test
   (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
     (sniptest "<div><<h1>untouched ${name}<p class=\"${class}\">hello ${name}"
-      #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"}))))
-
+      #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"})))
+  (is-same "<p>Hello, Judy Smith.</p>"
+    (sniptest "<p>Hello, ${first-name} ${last-name}.</p>"
+      [:p any-node] (replace-vars {:first-name "Judy", :last-name "Smith"}))))
