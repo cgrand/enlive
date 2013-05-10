@@ -288,6 +288,9 @@
       [:div] (content (html [:ul (for [s ["a" "b" "c"]] [:li s])])))))
 
 (deftest replace-vars-test
+  (is-same "<p>Hello, Judy Smith.</p>"
+    (sniptest "<p>Hello, ${first-name} ${last-name}.</p>"
+      [:p any-node] (replace-vars {:first-name "Judy", :last-name "Smith"})))
   (is-same "<script> var require = {baseUrl : 'test'}; </script>"
     (sniptest "<script> var require = {baseUrl : '${url}'}; </script>"
       [:script any-node] (replace-vars {:url "test"})))
