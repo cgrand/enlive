@@ -12,7 +12,7 @@
   (:use net.cgrand.enlive-html)
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z])
-  (:use [clojure.test :only [deftest is are]]))
+  (:use [clojure.test :only [deftest is are testing]]))
 
 ;; test utilities
 (defn- normalize [x]
@@ -288,7 +288,15 @@
       [:div] (content (html [:ul (for [s ["a" "b" "c"]] [:li s])])))))
 
 (deftest replace-vars-test
-  (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
-    (sniptest "<div><<h1>untouched ${name}<p class=\"${class}\">hello ${name}"
-      #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"}))))
-
+  (testing "a var not present in the map should be untouched"
+    (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
+      (sniptest "<div><<h1>untouched ${name}<p class=\"${class}\">hello ${name}"
+        #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"}))))
+  (testing "given a string with two vars which are both present in the map, both should be replaced"
+    (is-same "<p>Hello, Judy Smith.</p>"
+      (sniptest "<p>Hello, ${first-name} ${last-name}.</p>"
+        [:p any-node] (replace-vars {:first-name "Judy", :last-name "Smith"}))))
+  (testing "single-char vars should be replaced successfully"
+    (is-same "<p>The cheese is old and moldy, where is the bathroom?</p>"
+      (sniptest "<p>The ${f} is old and moldy, where is the bathroom?</p>"
+        [:p any-node] (replace-vars {:f "cheese"})))))
