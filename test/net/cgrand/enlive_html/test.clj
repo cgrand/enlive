@@ -296,5 +296,8 @@
       [:script any-node] (replace-vars {:url "test"})))
   (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
     (sniptest "<div><<h1>untouched ${name}<p class=\"${class}\">hello ${name}"
-      #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"}))))
+              #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"})))
+  (is-same "<p>Hey you!</p>"
+    (sniptest "<p>Hey ${w}!</p>"
+      [:p any-node] (replace-vars {:w "you"}))))
 
