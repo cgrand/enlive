@@ -581,7 +581,7 @@
   "Get the last modified date for the given classpath resource."
   [res]
   (-> (clojure.lang.RT/baseLoader) (.getResource res)
-      (.toURI) (java.io.File.) (.lastModified)))
+      (.openConnection) (.getLastModified)))
 
 (defn html-resource*
   "Parse an html resource and include metadata."
