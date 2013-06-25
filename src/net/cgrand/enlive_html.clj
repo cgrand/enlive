@@ -577,6 +577,67 @@
     (list forms)
     forms))
 
+(defn get-last-modified
+  "Get the last modified date for the given classpath resource."
+  [res]
+  (-> (clojure.lang.RT/baseLoader) (.getResource res)
+      (.openConnection) (.getLastModified)))
+
+(defn html-resource*
+  "Parse an html resource and include metadata."
+  [res & [opts]]
+  (with-meta
+    (html-resource res opts)
+    {:resource-path res
+     :last-modified (get-last-modified res)}))
+
+(defn html-updated? [nodes]
+  (let [{:keys [resource-path last-modified]} (meta nodes)]
+    (< last-modified (get-last-modified resource-path))))
+
+(defn make-html-loader
+  "Create a function which reloads it's source when modified. The
+  resulting function takes a resource path as the only argument."
+  []
+  (let [state (atom {})]
+    (fn [path & [opts]]
+      (let [res (get @state path)]
+        (if (or (not res) (html-updated? res))
+          (let [res (html-resource* path opts)]
+            (swap! state assoc path res)
+            res)
+          res)))))
+
+(def html-loader (make-html-loader))
+
+(defn snippet-resource*
+  "Parse a snippet resource. This uses the 'html-loader and copies the
+  meta data to the result so we can track when the underlying resource
+  has been modified."
+  [path sel & [opts]]
+  (let [res (html-loader path opts)]
+    (with-meta
+      (map annotate (select res sel))
+      (meta res))))
+
+(defn make-snippet-loader
+  "Create a function which reloads it's snippets when the resource has
+  been modified. The returned function takes the following args:
+
+    - `path` a classpath resource
+    - `sel` a selector"
+  []
+  (let [state (atom {})]
+    (fn [path sel & [opts]]
+      (let [res (get @state [path sel])]
+        (if (or (not res) (html-updated? res))
+          (let [res (snippet-resource* path sel opts)]
+            (swap! state assoc [path sel] res)
+            res)
+          res)))))
+
+(def snippet-loader (make-snippet-loader))
+
 ;; note: options may be triggered by :options as the 1st arg
 (defmacro snippet* [nodes & body]
   (let [nodesym (gensym "nodes")]
@@ -585,23 +646,29 @@
            `(~args
               (doall (flatmap (transformation ~@forms) ~nodesym))))))))
 
+(defmacro snippet-reloadable* [nodes-fn & body]
+  `(fn ~@(for [[args & forms] (bodies body)]
+           `(~args (doall (flatmap (transformation ~@forms) (~nodes-fn)))))))
+
 (defmacro snippet 
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
   (let [[options source selector args & forms]
          (pad-unless map? {} (list* source selector args forms))]
-    `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
-                   ~options)]
-       (snippet* (select (html-resource ~source opts#) ~selector) ~args ~@forms))))
+    `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*))) ~options)]
+       (if (:reloadable? opts#)
+         (snippet-reloadable* #(snippet-loader ~source ~selector opts#) ~args ~@forms)
+         (snippet* (select (html-resource ~source opts#) ~selector) ~args ~@forms)))))
 
 (defmacro template 
  "A template returns a seq of string."
  ([source args & forms]
    (let [[options source & body] 
            (pad-unless map? {} (list* source args forms))]
-     `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
-                    ~options)]
-        (comp emit* (snippet* (html-resource ~source opts#) ~@body))))))
+     `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*))) ~options)]
+        (comp emit* (if (:reloadable? opts#)
+                      (snippet-reloadable* #(html-loader ~source opts#) ~@body)
+                      (snippet* (html-resource ~source opts#) ~@body)))))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
