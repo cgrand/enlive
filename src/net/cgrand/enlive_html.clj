@@ -2,7 +2,7 @@
 
 ;   The use and distribution terms for this software are covered by the
 ;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this 
+;   which can be found in the file epl-v10.html at the root of this
 ;   distribution.
 ;   By using this software in any fashion, you are agreeing to be bound by
 ;   the terms of this license.
@@ -17,22 +17,25 @@
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 
-(defn- mapknit 
- ([f coll]
-   (mapknit f coll nil))
- ([f coll etc]
-  (lazy-seq
-    (if (seq coll)
-      (f (first coll) (mapknit f (rest coll) etc))
-      etc))))
+(defn- mapknit
+  ([f coll]
+     (mapknit f coll nil))
+  ([f coll etc]
+     (reduce (fn [y x] (f x y)) etc (reverse coll))))
 
-(defn- iterate-while 
+(defn- render
+  ([f coll]
+     (persistent! (render f coll (transient []))))
+  ([f coll etc]
+     (reduce f etc coll)))
+
+(defn- iterate-while
  ([f x]
-  (lazy-seq (when x (cons x (iterate-while f (f x)))))) 
+  (lazy-seq (when x (cons x (iterate-while f (f x))))))
  ([f x pred]
-  (lazy-seq (when (pred x) (cons x (iterate-while f (f x) pred)))))) 
-  
-    
+  (lazy-seq (when (pred x) (cons x (iterate-while f (f x) pred))))))
+
+
 ;; I/O stuff
 
 (def ^{:dynamic true} *options* {:parser tagsoup/parser})
@@ -41,7 +44,7 @@
   `(binding [*options* (merge *options* ~m)]
      ~@body))
 
-(defn ns-options 
+(defn ns-options
   ([] (ns-options *ns*))
   ([ns] (::options (meta ns) {})))
 
@@ -63,17 +66,17 @@
   [parser]
   (alter-ns-options! assoc :parser parser))
 
-(defn xml-parser 
+(defn xml-parser
  "Loads and parse a XML resource and closes the stream."
- [stream] 
+ [stream]
   (with-open [^java.io.Closeable stream stream]
     (xml/parse (org.xml.sax.InputSource. stream))))
 
-(defmulti ^{:arglists '([resource loader])} get-resource 
- "Loads a resource, using the specified loader. Returns a seq of nodes." 
+(defmulti ^{:arglists '([resource loader])} get-resource
+ "Loads a resource, using the specified loader. Returns a seq of nodes."
  (fn [res _] (type res)))
 
-(defn html-resource 
+(defn html-resource
  "Loads an HTML resource, returns a seq of nodes."
  ([resource]
    (get-resource resource (:parser *options*)))
@@ -81,7 +84,7 @@
    (with-options options
      (html-resource resource))))
 
-(defn xml-resource 
+(defn xml-resource
  "Loads an XML resource, returns a seq of nodes."
  [resource]
   (get-resource resource xml-parser))
@@ -123,7 +126,7 @@
  "Like clojure.core/str but escapes < > and &."
  [x]
   (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;")))
-  
+
 (defn- attr-str
  "Like clojure.core/str but escapes < > & and \"."
  [x]
@@ -133,70 +136,67 @@
 
 (declare emit)
 
-(defn- emit-attrs [attrs etc]
-  (mapknit (fn [[k v] etc]
-             (list* " " (name k) "=\"" (attr-str v) "\"" etc)) attrs etc))
+(defn conj-all!
+  [t & all]
+  (doseq [i all]
+    (conj! t i))
+  t)
+
+(defn- emit-attrs [etc attrs]
+  (render (fn [etc [k v]]
+            (conj-all! etc " " (name k) "=\"" (attr-str v) "\""))
+           attrs
+           etc))
 
 (defn- content-emitter [tag-name]
-  (if (#{"script" "style"} tag-name) (fn [x etc] (cons (str x) etc)) emit))
+  (if (#{"script" "style"} tag-name)
+    (fn [etc x]
+      (conj! etc (str x)))
+    emit))
 
-(defn- emit-tag [tag etc]
-  (let [name (-> tag :tag name)
-        etc (if-let [s (seq (:content tag))]
-              (->> etc (list* "</" name ">") 
-                (mapknit (content-emitter name) s)
-                (cons ">")) 
-              (if (self-closing-tags (:tag tag)) 
-                (cons " />" etc)
-                (list* "></" name ">" etc)))
-        etc (emit-attrs (:attrs tag) etc)]
-    (list* "<" name etc)))
+(defn emit-tag [tag etc]
+  (let [name (-> tag :tag name)]
+    (conj-all! etc "<" name)
+    (emit-attrs etc (:attrs tag))
+    (if-let [s (seq (:content tag))]
+      (do
+        (conj! etc ">")
+        (render (content-emitter name) s etc)
+        (conj-all! etc "</" name ">"))
+      (if (self-closing-tags (:tag tag))
+        (conj-all! etc " />")
+        (conj-all! etc "></" name ">")))
+    etc))
 
 (defn- emit-comment [node etc]
-  (list* "<!--" (str (:data node)) "-->" etc))
+  (conj-all! etc "<!--" (str (:data node)) "-->"))
 
 (defn- emit-dtd [{[name public-id system-id] :data} etc]
-  (cons 
-    (cond
-      public-id 
-      (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n")
-      system-id   
-      (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
-      :else
-      (str "<!DOCTYPE " name ">\n"))
-    etc))
+  (conj!
+   etc
+   (cond
+    public-id
+    (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n")
+    system-id
+    (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
+    :else
+    (str "<!DOCTYPE " name ">\n"))
+   ))
 
 (defn- annotations [x]
   (-> x meta ::annotations))
 
-(defn- emit [node etc]
-  (cond 
+(defn- emit [etc node]
+  (cond
     (xml/tag? node) ((:emit (annotations node) emit-tag) node etc)
     (xml/comment? node) (emit-comment node etc)
     (xml/dtd? node) (emit-dtd node etc)
-    :else (cons (xml-str node) etc)))
-  
-(defn emit* [node-or-nodes]
-  (if (xml/tag? node-or-nodes) (emit node-or-nodes nil) (mapknit emit node-or-nodes)))
+    :else (conj! etc (xml-str node))))
 
-(defn- tag-emitter [{:keys [tag content attrs] :as node}]
-  (let [name (name tag)
-        attrs-str (apply str (emit-attrs attrs nil))
-        open (str "<" name attrs-str ">")
-        close (str "</" name ">")
-        empty (if (self-closing-tags tag)
-                (str "<" name attrs-str " />")
-                (str open close))
-        emit (content-emitter name)
-        full (apply str (emit-tag node nil))]
-    (fn [elt etc]
-      (cond
-        (= node elt) (cons full etc)
-        (and (= tag (:tag elt)) (= attrs (:attrs elt)))
-          (if-let [content (seq (:content elt))]
-            (->> etc (cons close) (mapknit emit content) (cons open))
-            (cons empty etc))
-        :else (emit-tag elt etc)))))
+(defn emit* [node-or-nodes]
+  (if (xml/tag? node-or-nodes)
+    (render emit [node-or-nodes])
+    (render emit node-or-nodes)))
 
 (defn- comment-emitter [{data :data :as node}]
   (let [s (apply str (emit-comment node nil))]
@@ -205,12 +205,12 @@
 (defn annotate [node]
   (cond
     (xml/tag? node)
-      (let [node (update-in node [:content] #(map annotate %))] 
-        (vary-meta node assoc ::annotations {:emit (tag-emitter node)}))
+      (let [node (update-in node [:content] #(map annotate %))]
+        (vary-meta node assoc ::annotations {:emit emit-tag}))
     (xml/comment? node)
-      (vary-meta node assoc ::annotations {:emit (comment-emitter node)})  
+      (vary-meta node assoc ::annotations {:emit (comment-emitter node)})
     :else node))
-      
+
 ;; utilities
 
 (defn- node? [x]
@@ -218,12 +218,12 @@
 
 (defn as-nodes [node-or-nodes]
   (if (node? node-or-nodes)
-    [node-or-nodes] 
+    [node-or-nodes]
     node-or-nodes))
 
 (defn flatten-nodes-coll [x]
   (letfn [(flat* [x stack]
-            (if (node? x) 
+            (if (node? x)
               (cons x (when (seq stack) (flat (peek stack) (pop stack))))
               (if-let [[x & xs] (seq x)]
                 (recur x (conj stack xs))
@@ -236,29 +236,29 @@
 (defn flatmap [f node-or-nodes]
   (flatten-nodes-coll (map f (as-nodes node-or-nodes))))
 
-(defn attr-values 
+(defn attr-values
  "Returns the whitespace-separated values of the specified attr as a set or nil."
  [node attr]
   (when-let [v (-> node :attrs (get attr))]
     (set (re-seq #"\S+" v))))
 
 ;; predicates utils
-(defn zip-pred 
+(defn zip-pred
  "Turns a predicate function on elements locs into a predicate-step usable in selectors."
  [f]
   #(and (z/branch? %) (f %)))
 
-(defn pred 
+(defn pred
  "Turns a predicate function on elements into a predicate-step usable in selectors."
  [f]
   (zip-pred #(f (z/node %))))
 
-(defn text-pred 
+(defn text-pred
  "Turns a predicate function on strings (text nodes) into a predicate-step usable in selectors."
  [f]
   #(let [n (z/node %)] (and (string? n) (f n))))
 
-(defn re-pred 
+(defn re-pred
  "Turns a regex into a predicate-step on text nodes usable in selectors."
  [re]
   (text-pred #(re-matches re %)))
@@ -268,7 +268,7 @@
 ;; core predicates
 (def any (pred (constantly true)))
 
-(defn tag= 
+(defn tag=
  "Selector predicate, :foo is as short-hand for (tag= :foo)."
  [tag-name]
   (pred #(= (:tag %) tag-name)))
@@ -282,12 +282,12 @@
  "Selector predicate, tests if the specified whitespace-seperated attribute contains the specified values. See CSS ~="
  [attr & values]
   (pred #(when-let [v (attr-values % attr)] (every? v values))))
- 
-(defn has-class 
+
+(defn has-class
  "Selector predicate, :.foo.bar is as short-hand for (has-class \"foo\" \"bar\")."
  [& classes]
   (apply attr-has :class classes))
-   
+
 ;; selector syntax
 (defn intersection [preds]
   (condp = (count preds)
@@ -305,12 +305,12 @@
     4 (let [[f g h k] preds] #(or (f %) (g %) (h %) (k %)))
     (fn [x] (some #(% x) preds))))
 
-(def ^{:private true} compile-keyword 
-  (memoize 
+(def ^{:private true} compile-keyword
+  (memoize
     (fn [kw]
       (if (= :> kw)
         :>
-        (let [[[first-letter :as tag-name] :as segments] 
+        (let [[[first-letter :as tag-name] :as segments]
                 (.split (name kw) "(?=[#.])")
               classes (for [s segments :when (= \. (first s))] (subs s 1))
               preds (when (seq classes) (list (apply has-class classes)))
@@ -322,14 +322,14 @@
                                 (conj preds (id= (subs segment 1)))
                                 preds)) preds segments)]
          (if (seq preds) (intersection preds) any))))))
-    
+
 (defn- compile-step [step]
   (cond
-    (keyword? step) (compile-keyword step)  
+    (keyword? step) (compile-keyword step)
     (set? step) (union (map compile-step step))
     (vector? step) (intersection (map compile-step step))
-    :else step))      
-    
+    :else step))
+
 (defn- compile-chain [chain]
   (map compile-step chain))
 
@@ -354,12 +354,12 @@
   (fn [^Number n]
     (loop [n n s (set init) [chains & etc] chains-seq]
       (cond
-        (odd? n) (recur (bit-shift-right n 1) (into s chains) etc) 
+        (odd? n) (recur (bit-shift-right n 1) (into s chains) etc)
         (zero? n) s
         :else (recur (bit-shift-right n 1) s etc)))))
 
 (defn- make-state [chains]
-  (let [derivations 
+  (let [derivations
           (reduce
             (fn [derivations chain]
               (cond
@@ -369,7 +369,7 @@
                 (next chain)
                   (let [pred (first chain)]
                     (-> derivations
-                      (assoc nil (conj (derivations nil) chain)) 
+                      (assoc nil (conj (derivations nil) chain))
                       (assoc pred (conj (derivations pred) (next chain)))))
                 :else
                   (assoc derivations :accepts (first chain)))) {} chains)
@@ -392,7 +392,7 @@
 (def ^{:private true} memoized-automaton* (memoize automaton*))
 
 (def ^{:private true} memoized-lockstep-automaton* (memoize lockstep-automaton*))
-    
+
 (defn- automaton [selector]
   ((if (cacheable? selector) memoized-automaton* automaton*) selector))
 
@@ -409,40 +409,40 @@
   (not (fragment-selector? selector)))
 
 (defn- static-selector? [selector]
-  (or (keyword? selector) 
+  (or (keyword? selector)
     (and (coll? selector) (every? static-selector? selector))))
 
-;; core 
-  
+;; core
+
 (defn- children-locs [loc]
   (iterate-while z/right (z/down loc)))
 
 (defn- transform-loc [loc previous-state transformations etc]
   (if-let [state (step previous-state loc)]
-    (let [node (if-let [children (and (z/branch? loc) 
+    (let [node (if-let [children (and (z/branch? loc)
                                    (mapknit #(transform-loc %1 state transformations %2) (children-locs loc)))]
                  (z/make-node loc (z/node loc) children)
                  (z/node loc))]
       (if-let [k (accept-key state)]
         (let [result ((transformations k) node)]
-          ((if (node? result) cons concat) result etc)) 
+          ((if (node? result) cons concat) result etc))
         (cons node etc)))
     (cons (z/node loc) etc)))
 
 (defn- transform-node [nodes selector transformation]
   (let [transformation (or transformation (constantly nil))
-        transformations (constantly transformation)  
+        transformations (constantly transformation)
         state (automaton selector)]
     (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
 
 (defn- transform-fragment-locs [locs from-state to-state transformation]
   (if (and from-state to-state)
-    (let [transform-fragment-loc 
+    (let [transform-fragment-loc
            (fn [loc from-state to-state]
              (let [children (transform-fragment-locs (children-locs loc)
                               from-state to-state transformation)]
                [(if (and (z/branch? loc) (not= children (z/children loc)))
-                  (z/make-node loc (z/node loc) children) 
+                  (z/make-node loc (z/node loc) children)
                   (z/node loc))
                 (accept-key from-state)
                 (accept-key to-state)]))
@@ -456,7 +456,7 @@
               (recur etc nil
                 (conj transformed-nodes (transformation (conj fragment node))))
               (recur etc (conj fragment node) transformed-nodes))
-            (if start? 
+            (if start?
               (recur nodes+ [] transformed-nodes)
               (recur etc nil (conj transformed-nodes node))))
           (flatten-nodes-coll (into transformed-nodes fragment)))))
@@ -467,8 +467,8 @@
     nodes
     (let [[from-selector to-selector] (first selector)
           transformation (or transformation (constantly nil))]
-      (flatten-nodes-coll (transform-fragment-locs (map xml/xml-zip nodes) 
-                 (automaton from-selector) (automaton to-selector) 
+      (flatten-nodes-coll (transform-fragment-locs (map xml/xml-zip nodes)
+                 (automaton from-selector) (automaton to-selector)
                  transformation)))))
 
 (defn transform [nodes selector transformation]
@@ -482,7 +482,7 @@
 
 (defn lockstep-transform [nodes transformations-map]
   (let [state (lockstep-automaton (keys transformations-map))
-        transformations (vec (map #(or % (constantly nil)) 
+        transformations (vec (map #(or % (constantly nil))
                                (vals transformations-map)))]
     (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
 
@@ -491,72 +491,72 @@
     (as-nodes node-or-nodes) rules))
 
 (defmacro at [node-or-nodes & rules]
-  `(-> ~node-or-nodes as-nodes 
+  `(-> ~node-or-nodes as-nodes
      ~@(for [[s t] (partition 2 rules)]
          (if (= :lockstep s)
-           `(lockstep-transform 
-              ~(into {} (for [[s t] t] 
+           `(lockstep-transform
+              ~(into {} (for [[s t] t]
                           [(if (static-selector? s) (cacheable s) s) t])))
            `(transform ~(if (static-selector? s) (cacheable s) s) ~t)))))
 
 (defn zip-select-nodes* [locs state]
-  (letfn [(select1 [loc previous-state] 
+  (letfn [(select1 [loc previous-state]
             (when-let [state (step previous-state loc)]
               (let [descendants (mapcat #(select1 % state) (children-locs loc))]
                 (if (accept-key state) (cons loc descendants) descendants))))]
     (mapcat #(select1 % state) locs)))
-      
+
 (defn select-nodes* [nodes selector]
   (let [state (automaton selector)]
-    (map z/node (zip-select-nodes* (map xml/xml-zip nodes) state)))) 
-      
+    (map z/node (zip-select-nodes* (map xml/xml-zip nodes) state))))
+
 (defn zip-select-fragments* [locs state-from state-to]
-  (letfn [(select1 [locs previous-state-from previous-state-to] 
+  (letfn [(select1 [locs previous-state-from previous-state-to]
             (when (and previous-state-from previous-state-to)
               (let [states-from (map #(step previous-state-from %) locs)
                     states-to (map #(step previous-state-to %) locs)
                     descendants (reduce into []
-                                  (map #(select1 (children-locs %1) %2 %3) 
+                                  (map #(select1 (children-locs %1) %2 %3)
                                     locs states-from states-to))]
-                (loop [fragments descendants fragment nil 
+                (loop [fragments descendants fragment nil
                        locs locs states-from states-from states-to states-to]
                   (if-let [[loc & etc] (seq locs)]
                     (if fragment
                       (let [fragment (conj fragment loc)]
                         (if (accept-key (first states-to))
-                          (recur (conj fragments fragment) nil etc 
+                          (recur (conj fragments fragment) nil etc
                             (rest states-from) (rest states-to))
-                          (recur fragments fragment etc 
+                          (recur fragments fragment etc
                             (rest states-from) (rest states-to))))
                       (if (accept-key (first states-from))
                         (recur fragments [] locs states-from states-to)
-                        (recur fragments nil etc 
+                        (recur fragments nil etc
                           (rest states-from) (rest states-to))))
                     fragments)))))]
     (select1 locs state-from state-to)))
-      
+
 (defn select-fragments* [nodes selector]
-  (let [[selector-from selector-to] (first selector) 
+  (let [[selector-from selector-to] (first selector)
         state-from (automaton selector-from)
         state-to (automaton selector-to)]
-    (map #(map z/node %) 
-      (zip-select-fragments* (map xml/xml-zip nodes) state-from state-to)))) 
+    (map #(map z/node %)
+      (zip-select-fragments* (map xml/xml-zip nodes) state-from state-to))))
 
 (defn select
  "Returns the seq of nodes or fragments matched by the specified selector."
  [node-or-nodes selector]
   (let [nodes (as-nodes node-or-nodes)]
     (if (node-selector? selector)
-      (select-nodes* nodes selector) 
+      (select-nodes* nodes selector)
       (select-fragments* nodes selector))))
-  
-(defn zip-select 
+
+(defn zip-select
  "Returns the seq of locs matched by the specified selector."
  [locs selector]
   (if (node-selector? selector)
-    (apply zip-select-nodes* locs selector) 
+    (apply zip-select-nodes* locs selector)
     (apply zip-select-fragments* locs selector)))
-      
+
 
 ;; main macros
 (defmacro transformation
@@ -567,7 +567,7 @@
 (defmacro lockstep-transformation
  [& forms] `(fn [node#] (at node# :lockstep ~(apply array-map forms))))
 
-(defn- pad-unless [pred value s] 
+(defn- pad-unless [pred value s]
   (if (pred (first s))
     (seq s)
     (cons value s)))
@@ -585,7 +585,7 @@
            `(~args
               (doall (flatmap (transformation ~@forms) ~nodesym))))))))
 
-(defmacro snippet 
+(defmacro snippet
  "A snippet is a function that returns a seq of nodes."
  [source selector args & forms]
   (let [[options source selector args & forms]
@@ -594,10 +594,10 @@
                    ~options)]
        (snippet* (select (html-resource ~source opts#) ~selector) ~args ~@forms))))
 
-(defmacro template 
+(defmacro template
  "A template returns a seq of string."
  ([source args & forms]
-   (let [[options source & body] 
+   (let [[options source & body]
            (pad-unless map? {} (list* source args forms))]
      `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
                     ~options)]
@@ -609,14 +609,14 @@
  `(def ~name (snippet ~source ~selector ~args ~@forms)))
 
 (defmacro deftemplate
- "Defines a template as a function that returns a seq of strings." 
- [name source args & forms] 
+ "Defines a template as a function that returns a seq of strings."
+ [name source args & forms]
   `(def ~name (template ~source ~args ~@forms)))
 
 (defmacro defsnippets
  [source & specs]
  (let [xml-sym (gensym "xml")]
-   `(let [~xml-sym (html-resource ~source)] 
+   `(let [~xml-sym (html-resource ~source)]
       ~@(for [[name selector args & forms] specs]
                `(def ~name (snippet ~xml-sym ~selector ~args ~@forms))))))
 
@@ -624,27 +624,27 @@
 ;; transformations
 
 (defn content
- "Replaces the content of the element. Values can be nodes or collection of nodes." 
+ "Replaces the content of the element. Values can be nodes or collection of nodes."
  [& values]
   #(assoc % :content (flatten-nodes-coll values)))
 
 (defmacro transform-content [& body]
  `(let [f# (transformation ~@body)]
-    (fn [elt#] 
+    (fn [elt#]
       (assoc elt# :content (flatmap f# (:content elt#))))))
 
 (defn html-snippet [& values]
  "Concatenate values as a string and then parse it with tagsoup.
   html-snippet doesn't insert missing <html> or <body> tags."
-  (-> (apply str "<bogon>" values) 
+  (-> (apply str "<bogon>" values)
     java.io.StringReader. html-resource first :content))
-  
+
 (defn html-content
  "Replaces the content of the element. Values are strings containing html code."
  [& values]
-  #(assoc % :content (apply html-snippet values))) 
+  #(assoc % :content (apply html-snippet values)))
 
-(defn wrap 
+(defn wrap
  ([tag] (wrap tag nil))
  ([tag attrs]
    #(array-map :tag tag :attrs attrs :content (as-nodes %))))
@@ -665,7 +665,7 @@
       (fn [node]
         (cond
           (string? node) (substitute-vars node)
-          (xml/tag? node) (assoc node :attrs 
+          (xml/tag? node) (assoc node :attrs
                             (into {} (for [[k v] (:attrs node)]
                                        [k (substitute-vars v)])))
           :else node)))))
@@ -674,31 +674,31 @@
  "Assocs attributes on the selected element."
  [& kvs]
   #(assoc % :attrs (apply assoc (:attrs % {}) kvs)))
-     
-(defn remove-attr 
+
+(defn remove-attr
  "Dissocs attributes on the selected element."
  [& attr-names]
   #(assoc % :attrs (apply dissoc (:attrs %) attr-names)))
-    
+
 (defn add-class
- "Adds the specified classes to the selected element." 
+ "Adds the specified classes to the selected element."
  [& classes]
   #(let [classes (into (or (attr-values % :class) #{}) classes)]
      (assoc-in % [:attrs :class] (apply str (interpose \space classes)))))
 
-(defn remove-class 
- "Removes the specified classes from the selected element." 
+(defn remove-class
+ "Removes the specified classes from the selected element."
  [& classes]
-  #(let [classes (when-let [cl (attr-values % :class)] 
-                   (reduce disj cl classes)) 
+  #(let [classes (when-let [cl (attr-values % :class)]
+                   (reduce disj cl classes))
          attrs (:attrs %)
-         attrs (if (empty? classes) 
-                 (dissoc attrs :class) 
+         attrs (if (empty? classes)
+                 (dissoc attrs :class)
                  (assoc attrs :class (apply str (interpose \space classes))))]
      (assoc % :attrs attrs)))
 
 (defn do->
- "Chains (composes) several transformations. Applies functions from left to right." 
+ "Chains (composes) several transformations. Applies functions from left to right."
  [& fns]
   #(reduce (fn [nodes f] (flatmap f nodes)) (as-nodes %) fns))
 
@@ -710,12 +710,12 @@
 (defn append
  "Appends the values to the content of the selected element."
  [& values]
-  #(assoc % :content (concat (:content %) (flatten-nodes-coll values)))) 
+  #(assoc % :content (concat (:content %) (flatten-nodes-coll values))))
 
 (defn prepend
  "Prepends the values to the content of the selected element."
  [& values]
-  #(assoc % :content (concat (flatten-nodes-coll values) (:content %)))) 
+  #(assoc % :content (concat (flatten-nodes-coll values) (:content %))))
 
 (defn after
  "Inserts the values after the current selection (node or fragment)."
@@ -735,48 +735,48 @@
 (defn move
  "Takes all nodes (under the current element) matched by src-selector, removes
   them and combines them with the elements matched by dest-selector.
-  By default, destination elements are replaced." 
+  By default, destination elements are replaced."
  ([src-selector dest-selector] (move src-selector dest-selector substitute))
  ([src-selector dest-selector combiner]
   (fn [node-or-nodes]
     (let [nodes (select node-or-nodes src-selector)]
       (at node-or-nodes
         src-selector nil
-        dest-selector (apply combiner nodes)))))) 
-     
+        dest-selector (apply combiner nodes))))))
+
 (defn strict-mode* [node]
   (if (xml/tag? node)
     (-> node
       (assoc-in [:attrs :xmlns] "http://www.w3.org/1999/xhtml")
-      (vary-meta assoc ::xml/dtd 
-        ["html" "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+      (vary-meta assoc ::xml/dtd
+        ["html" "-//W3C//DTD XHTML 1.0 Transitional//EN"
          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"]))
     node))
 
 (defmacro strict-mode
- "Adds xhtml-transitional DTD to switch browser in 'strict' mode." 
+ "Adds xhtml-transitional DTD to switch browser in 'strict' mode."
  [& forms]
-  `(do-> (transformation ~@forms) strict-mode*)) 
+  `(do-> (transformation ~@forms) strict-mode*))
 
 ;; other predicates
-(defn attr? 
+(defn attr?
  "Selector predicate, tests if the specified attributes are present."
  [& kws]
   (pred #(every? (-> % :attrs keys set) kws)))
-  
-(defn- every?+ [pred & colls]
-  (every? #(apply pred %) (apply map vector colls))) 
 
-(defn- multi-attr-pred 
+(defn- every?+ [pred & colls]
+  (every? #(apply pred %) (apply map vector colls)))
+
+(defn- multi-attr-pred
  [single-attr-pred]
   (fn [& kvs]
     (let [ks (take-nth 2 kvs)
           vs (take-nth 2 (rest kvs))]
       (pred #(when-let [attrs (:attrs %)]
-               (every?+ single-attr-pred (map attrs ks) vs))))))           
+               (every?+ single-attr-pred (map attrs ks) vs))))))
 
-(def ^{:doc "Selector predicate, tests if the specified attributes have the specified values."} 
- attr= 
+(def ^{:doc "Selector predicate, tests if the specified attributes have the specified values."}
+ attr=
   (multi-attr-pred =))
 
 (defn- starts-with? [^String s ^String prefix]
@@ -788,32 +788,32 @@
 (defn- contains-substring? [^String s ^String substring]
   (and s (<= 0 (.indexOf s substring))))
 
-(def ^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS ^= ."}
  attr-starts
   (multi-attr-pred starts-with?))
 
-(def ^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes end with the specified values. See CSS $= ."}
  attr-ends
   (multi-attr-pred ends-with?))
 
-(def ^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."} 
+(def ^{:doc "Selector predicate, tests if the specified attributes contain the specified values. See CSS *= ."}
  attr-contains
   (multi-attr-pred contains-substring?))
 
 (defn- is-first-segment? [^String s ^String segment]
-  (and s 
+  (and s
     (.startsWith s segment)
     (or (= (count s) (count segment))
         (= \- (.charAt s (count segment))))))
-             
+
 (def ^{:doc "Selector predicate, tests if the specified attributes start with the specified values. See CSS |= ."}
- attr|=           
+ attr|=
   (multi-attr-pred is-first-segment?))
 
-(def root 
+(def root
   (zip-pred #(-> % z/up nil?)))
 
-(defn- nth? 
+(defn- nth?
  [f a b]
   (if (zero? a)
     #(= (-> (filter xml/tag? (f %)) count inc) b)
@@ -841,21 +841,21 @@
  "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its left. See CSS :nth-of-type."
  ([b] (nth-of-type 0 b))
  ([a b] (zip-pred (nth? (filter-of-type z/lefts) a b))))
- 
+
 (defn nth-last-of-type
  "Selector step, tests if the node has an+b-1 siblings of the same type (tag name) on its right. See CSS :nth-last-of-type."
  ([b] (nth-last-of-type 0 b))
  ([a b] (zip-pred (nth? (filter-of-type z/rights) a b))))
 
-(def first-child (nth-child 1))      
-      
-(def last-child (nth-last-child 1))      
-      
-(def first-of-type (nth-of-type 1))      
-      
-(def last-of-type (nth-last-of-type 1))      
+(def first-child (nth-child 1))
 
-(def only-child (intersection [first-child last-child]))  
+(def last-child (nth-last-child 1))
+
+(def first-of-type (nth-of-type 1))
+
+(def last-of-type (nth-last-of-type 1))
+
+(def only-child (intersection [first-child last-child]))
 
 (def only-of-type (intersection [first-of-type last-of-type]))
 
@@ -868,19 +868,19 @@
 (defn- select? [node-or-nodes selector]
   (-> node-or-nodes as-nodes (select selector) seq boolean))
 
-(defn has 
- "Selector predicate, matches elements which contain at least one element that 
-  matches the specified selector. See jQuery's :has" 
+(defn has
+ "Selector predicate, matches elements which contain at least one element that
+  matches the specified selector. See jQuery's :has"
  [selector]
   (pred #(select? (:content %) selector)))
-  
+
 (defn but-node
- "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not" 
+ "Selector predicate, matches nodes which are rejected by the specified selector-step. See CSS :not"
  [selector-step]
   (complement (compile-step selector-step)))
 
 (defn but
- "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not" 
+ "Selector predicate, matches elements which are rejected by the specified selector-step. See CSS :not"
  [selector-step]
   (intersection [any (but-node selector-step)]))
 
@@ -898,7 +898,7 @@
  [selector-step]
   (let [selector [:> selector-step]]
     #(select? (filter xml/tag? (z/lefts %)) selector)))
-  
+
 (defn right
  "Selector predicate, matches nodes whose immediate right sibling element is
   matched by the specified selector-step."
@@ -913,7 +913,7 @@
  [selector-step]
   (let [selector [:> selector-step]]
     #(select? (filter xml/tag? (z/rights %)) selector)))
-  
+
 (def any-node (constantly true))
 
 (def this-node [:> any-node])
@@ -924,50 +924,50 @@
 
 ;; screen-scraping utils
 (defn text
- "Returns the text value of a node." 
+ "Returns the text value of a node."
  {:tag String}
  [node]
   (cond
     (string? node) node
-    (xml/tag? node) (apply str (map text (:content node))) 
+    (xml/tag? node) (apply str (map text (:content node)))
     :else ""))
-    
+
 (defn texts
- "Returns the text value of a nodes collection." 
+ "Returns the text value of a nodes collection."
  {:tag String}
  [nodes]
   (map text nodes))
 
 (defmacro let-select
- "For each node or fragment, performs a subselect and bind it to a local, 
+ "For each node or fragment, performs a subselect and bind it to a local,
   then evaluates body.
-  bindings is a vector of binding forms and selectors." 
+  bindings is a vector of binding forms and selectors."
  [nodes-or-fragments bindings & body]
   (let [node-or-fragment (gensym "node-or-fragment__")
-        bindings 
-          (map (fn [f x] (f x)) 
+        bindings
+          (map (fn [f x] (f x))
             (cycle [identity (fn [spec] `(select ~node-or-fragment ~spec))])
-            bindings)] 
-    `(map (fn [~node-or-fragment] 
+            bindings)]
+    `(map (fn [~node-or-fragment]
             (let [~@bindings]
               ~@body)) ~nodes-or-fragments)))
- 
+
  ;; repl-utils
 (defn sniptest* [nodes f]
   (apply str (emit* (flatmap f nodes))))
-    
+
 (defmacro sniptest
- "A handy macro for experimenting at the repl" 
+ "A handy macro for experimenting at the repl"
  [source-string & forms]
-  `(sniptest* (html-snippet ~source-string) (transformation ~@forms))) 
+  `(sniptest* (html-snippet ~source-string) (transformation ~@forms)))
 
 
 ;; hiccup-style inline fragments
 (defn- nodify [node-spec]
   (cond
     (string? node-spec) node-spec
-    (vector? node-spec) 
-      (let [[tag & [m & ms :as more]] node-spec 
+    (vector? node-spec)
+      (let [[tag & [m & ms :as more]] node-spec
             [tag-name & segments] (.split (name tag) "(?=[#.])")
             id (some (fn [^String seg]
                        (when (= \# (.charAt seg 0)) (subs seg 1))) segments)
@@ -977,13 +977,13 @@
             node {:tag (keyword tag-name) :attrs (if (map? m) m {})
                   :content (flatmap nodify (if (map? m) ms more))}
             node (if id (assoc-in node [:attrs :id] id) node)
-            node (if (seq classes) 
+            node (if (seq classes)
                    (assoc-in node [:attrs :class]
                              (apply str (interpose \space classes)))
                    node)]
         node)
     (sequential? node-spec) (flatmap nodify node-spec)
-    :else (str node-spec))) 
+    :else (str node-spec)))
 
 (defn html
   "Allows to define inline fragments with a hiccup-like syntax."

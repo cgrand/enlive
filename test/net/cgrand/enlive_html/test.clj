@@ -2,7 +2,7 @@
 
 ;   The use and distribution terms for this software are covered by the
 ;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this 
+;   which can be found in the file epl-v10.html at the root of this
 ;   distribution.
 ;   By using this software in any fashion, you are agreeing to be bound by
 ;   the terms of this license.
@@ -23,7 +23,7 @@
 (defn- same? [& xs]
   (apply = (map normalize xs)))
 
-(defmacro #^{:private true} 
+(defmacro #^{:private true}
  is-same
  [& forms]
  `(is (same? ~@forms)))
@@ -31,7 +31,7 @@
 (defn- test-step [expected pred node]
   (= expected (boolean (pred (xml/xml-zip node)))))
 
-(defn- elt 
+(defn- elt
  ([tag] (elt tag nil))
  ([tag attrs & content]
    {:tag tag
@@ -259,7 +259,7 @@
 
 (deftest emit*-test
   (is (= "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')</script></h1>"
-        (sniptest "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')"))))
+         (sniptest "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')"))))
 
 (deftest transform-content-test
   (is-same "<div><div class='bar'><div>"
@@ -289,8 +289,7 @@
 
 (deftest replace-vars-test
   (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
-    (sniptest "<div><<h1>untouched ${name}<p class=\"${class}\">hello ${name}"
+           (sniptest "<div><h1>untouched ${name}<p class=\"${class}\">hello ${name}"
       #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"})))
   (is (= ((replace-vars {:a "A" :b "B"}) "${a} ${b}")
         "A B")))
-
