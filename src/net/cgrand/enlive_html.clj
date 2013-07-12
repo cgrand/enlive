@@ -21,7 +21,7 @@
   ([f coll]
      (mapknit f coll nil))
   ([f coll etc]
-     (reduce (fn [y x] (f x y)) etc (reverse coll))))
+     (reduce f etc (reverse coll))))
 
 (defn- render
   ([f coll]
@@ -34,7 +34,6 @@
   (lazy-seq (when x (cons x (iterate-while f (f x))))))
  ([f x pred]
   (lazy-seq (when (pred x) (cons x (iterate-while f (f x) pred))))))
-
 
 ;; I/O stuff
 
@@ -180,18 +179,17 @@
     system-id
     (str "<!DOCTYPE " name " SYSTEM \"" system-id "\">\n")
     :else
-    (str "<!DOCTYPE " name ">\n"))
-   ))
+    (str "<!DOCTYPE " name ">\n"))))
 
 (defn- annotations [x]
   (-> x meta ::annotations))
 
 (defn- emit [etc node]
   (cond
-    (xml/tag? node) ((:emit (annotations node) emit-tag) node etc)
-    (xml/comment? node) (emit-comment node etc)
-    (xml/dtd? node) (emit-dtd node etc)
-    :else (conj! etc (xml-str node))))
+   (xml/tag? node) ((:emit (annotations node) emit-tag) node etc)
+   (xml/comment? node) (emit-comment node etc)
+   (xml/dtd? node) (emit-dtd node etc)
+   :else (conj! etc (xml-str node))))
 
 (defn emit* [node-or-nodes]
   (if (xml/tag? node-or-nodes)
@@ -420,7 +418,7 @@
 (defn- transform-loc [loc previous-state transformations etc]
   (if-let [state (step previous-state loc)]
     (let [node (if-let [children (and (z/branch? loc)
-                                   (mapknit #(transform-loc %1 state transformations %2) (children-locs loc)))]
+                                   (mapknit #(transform-loc %2 state transformations %1) (children-locs loc)))]
                  (z/make-node loc (z/node loc) children)
                  (z/node loc))]
       (if-let [k (accept-key state)]
@@ -433,7 +431,7 @@
   (let [transformation (or transformation (constantly nil))
         transformations (constantly transformation)
         state (automaton selector)]
-    (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
+    (mapknit #(transform-loc (xml/xml-zip %2) state transformations %1) nodes)))
 
 (defn- transform-fragment-locs [locs from-state to-state transformation]
   (if (and from-state to-state)
