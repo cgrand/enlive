@@ -31,9 +31,9 @@
 
 (defn- iterate-while
  ([f x]
-  (lazy-seq (when x (cons x (iterate-while f (f x))))))
+    (when x (cons x (iterate-while f (f x)))))
  ([f x pred]
-  (lazy-seq (when (pred x) (cons x (iterate-while f (f x) pred))))))
+    (cons x (iterate-while f (f x) pred))))
 
 ;; I/O stuff
 
