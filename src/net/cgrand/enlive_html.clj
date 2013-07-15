@@ -196,17 +196,13 @@
     (render emit [node-or-nodes])
     (render emit node-or-nodes)))
 
-(defn- comment-emitter [{data :data :as node}]
-  (let [s (apply str (emit-comment node nil))]
-    #(if (= node %) (cons s %2) (emit-comment node %2))))
-
 (defn annotate [node]
   (cond
     (xml/tag? node)
       (let [node (update-in node [:content] #(map annotate %))]
         (vary-meta node assoc ::annotations {:emit emit-tag}))
     (xml/comment? node)
-      (vary-meta node assoc ::annotations {:emit (comment-emitter node)})
+      (vary-meta node assoc ::annotations {:emit emit-comment})
     :else node))
 
 ;; utilities
