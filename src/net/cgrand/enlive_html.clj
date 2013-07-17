@@ -17,18 +17,6 @@
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 
-(defn- mapknit
-  ([f coll]
-     (mapknit f coll nil))
-  ([f coll etc]
-     (reduce f etc (reverse coll))))
-
-(defn- render
-  ([f coll]
-     (persistent! (render f coll (transient []))))
-  ([f coll etc]
-     (reduce f etc coll)))
-
 (defn- iterate-while
  ([f x]
     (when x (cons x (iterate-while f (f x)))))
@@ -135,44 +123,51 @@
 
 (declare emit)
 
-(defn conj-all!
-  [t & all]
-  (doseq [i all]
-    (conj! t i))
-  t)
+(defn append!
+  ([t] (-> t))
+  ([t a] (-> t (conj! a)))
+  ([t a b] (-> t (conj! a) (conj! b)))
+  ([t a b c] (-> t (conj! a) (conj! b) (conj! c)))
+  ([t a b c d] (-> t (conj! a) (conj! b) (conj! c) (conj! d)))
+  ([t a b c d e] (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e)))
+  ([t a b c d e f] (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e) (conj! f)))
+  ([t a b c d e f g] (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e) (conj! f) (conj! g)))
+  ([t a b c d e f g & more] 
+    (reduce conj! (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e) (conj! f) (conj! g))
+      more)))
 
-(defn- emit-attrs [etc attrs]
-  (render (fn [etc [k v]]
-            (conj-all! etc " " (name k) "=\"" (attr-str v) "\""))
-           attrs
-           etc))
+(defn- emit-attrs [t attrs]
+  (reduce (fn [t [k v]]
+            (append! t " " (name k) "=\"" (attr-str v) "\""))
+    t attrs))
 
 (defn- content-emitter [tag-name]
   (if (#{"script" "style"} tag-name)
-    (fn [etc x]
-      (conj! etc (str x)))
+    (fn [t x]
+      (append! t (str x)))
     emit))
 
-(defn emit-tag [tag etc]
-  (let [name (-> tag :tag name)]
-    (conj-all! etc "<" name)
-    (emit-attrs etc (:attrs tag))
+(defn emit-tag [tag t]
+  (let [name (-> tag :tag name)
+        t (-> t
+            (append! "<" name)
+            (emit-attrs (:attrs tag)))]
     (if-let [s (seq (:content tag))]
-      (do
-        (conj! etc ">")
-        (render (content-emitter name) s etc)
-        (conj-all! etc "</" name ">"))
+      (->
+        (reduce (content-emitter name)
+          (append! t ">")
+          s)
+        (append! "</" name ">"))
       (if (self-closing-tags (:tag tag))
-        (conj-all! etc " />")
-        (conj-all! etc "></" name ">")))
-    etc))
+        (append! t " />")
+        (append! t "></" name ">")))))
 
-(defn- emit-comment [node etc]
-  (conj-all! etc "<!--" (str (:data node)) "-->"))
+(defn- emit-comment [node t]
+  (append! t "<!--" (str (:data node)) "-->"))
 
-(defn- emit-dtd [{[name public-id system-id] :data} etc]
-  (conj!
-   etc
+(defn- emit-dtd [{[name public-id system-id] :data} t]
+  (append!
+   t
    (cond
     public-id
     (str "<!DOCTYPE " name " PUBLIC \"" public-id "\"\n    \"" system-id "\">\n")
@@ -184,17 +179,18 @@
 (defn- annotations [x]
   (-> x meta ::annotations))
 
-(defn- emit [etc node]
+(defn- emit [t node]
   (cond
-   (xml/tag? node) ((:emit (annotations node) emit-tag) node etc)
-   (xml/comment? node) (emit-comment node etc)
-   (xml/dtd? node) (emit-dtd node etc)
-   :else (conj! etc (xml-str node))))
+   (xml/tag? node) ((:emit (annotations node) emit-tag) node t)
+   (xml/comment? node) (emit-comment node t)
+   (xml/dtd? node) (emit-dtd node t)
+   :else (append! t (xml-str node))))
+
+(defn- mapknitv [f coll]
+  (persistent! (reduce f (transient []) coll)))
 
 (defn emit* [node-or-nodes]
-  (if (xml/tag? node-or-nodes)
-    (render emit [node-or-nodes])
-    (render emit node-or-nodes)))
+  (mapknitv emit (if (xml/tag? node-or-nodes) [node-or-nodes] node-or-nodes)))
 
 (defn annotate [node]
   (cond
@@ -411,23 +407,27 @@
 (defn- children-locs [loc]
   (iterate-while z/right (z/down loc)))
 
-(defn- transform-loc [loc previous-state transformations etc]
+(defn- transform-loc [loc previous-state transformations t]
   (if-let [state (step previous-state loc)]
     (let [node (if-let [children (and (z/branch? loc)
-                                   (mapknit #(transform-loc %2 state transformations %1) (children-locs loc)))]
+                                   (mapknitv #(transform-loc %2 state transformations %1)
+                                     (children-locs loc)))]
                  (z/make-node loc (z/node loc) children)
                  (z/node loc))]
       (if-let [k (accept-key state)]
         (let [result ((transformations k) node)]
-          ((if (node? result) cons concat) result etc))
-        (cons node etc)))
-    (cons (z/node loc) etc)))
+          (if (node? result)
+            (append! t result)
+            (reduce append! t result)))
+        (append! t node)))
+    (append! t (z/node loc))))
 
 (defn- transform-node [nodes selector transformation]
   (let [transformation (or transformation (constantly nil))
         transformations (constantly transformation)
         state (automaton selector)]
-    (mapknit #(transform-loc (xml/xml-zip %2) state transformations %1) nodes)))
+    (mapknitv #(transform-loc (xml/xml-zip %2) state transformations %1)
+      nodes)))
 
 (defn- transform-fragment-locs [locs from-state to-state transformation]
   (if (and from-state to-state)
@@ -478,7 +478,8 @@
   (let [state (lockstep-automaton (keys transformations-map))
         transformations (vec (map #(or % (constantly nil))
                                (vals transformations-map)))]
-    (mapknit #(transform-loc (xml/xml-zip %1) state transformations %2) nodes)))
+    (mapknitv #(transform-loc (xml/xml-zip %1) state transformations %2)
+      nodes)))
 
 (defn at* [node-or-nodes rules]
   (reduce (fn [nodes [s t]] (transform nodes s t))
