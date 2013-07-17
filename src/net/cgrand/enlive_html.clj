@@ -135,15 +135,9 @@
 
 (declare emit)
 
-(defn conj-all!
-  [t & all]
-  (doseq [i all]
-    (conj! t i))
-  t)
-
 (defn- emit-attrs [etc attrs]
   (render (fn [etc [k v]]
-            (conj-all! etc " " (name k) "=\"" (attr-str v) "\""))
+            (reduce conj! etc [" " (name k) "=\"" (attr-str v) "\""]))
            attrs
            etc))
 
@@ -155,20 +149,20 @@
 
 (defn emit-tag [tag etc]
   (let [name (-> tag :tag name)]
-    (conj-all! etc "<" name)
+    (reduce conj! etc ["<" name])
     (emit-attrs etc (:attrs tag))
     (if-let [s (seq (:content tag))]
       (do
         (conj! etc ">")
         (render (content-emitter name) s etc)
-        (conj-all! etc "</" name ">"))
+        (reduce conj! etc ["</" name ">"]))
       (if (self-closing-tags (:tag tag))
-        (conj-all! etc " />")
-        (conj-all! etc "></" name ">")))
+        (conj! etc " />")
+        (reduce conj! etc ["></" name ">"])))
     etc))
 
 (defn- emit-comment [node etc]
-  (conj-all! etc "<!--" (str (:data node)) "-->"))
+  (reduce conj! etc ["<!--" (str (:data node)) "-->"]))
 
 (defn- emit-dtd [{[name public-id system-id] :data} etc]
   (conj!
@@ -948,7 +942,7 @@
 
  ;; repl-utils
 (defn sniptest* [nodes f]
-  (apply str (emit* (flatmap f nodes))))
+  (clojure.string/join "" (emit* (flatmap f nodes))))
 
 (defmacro sniptest
  "A handy macro for experimenting at the repl"
