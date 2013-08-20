@@ -4,7 +4,7 @@ h1. Enlive "!https://travis-ci.org/cgrand/enlive.png!":https://travis-ci.org/cgr
 Enlive is a selector-based (à la CSS) templating library for Clojure. 
 
 <pre>
-  [enlive "1.1.1"]
+  [enlive "1.1.2"]
 </pre>
 
 <pre>
@@ -25,6 +25,20 @@ h2. Where do I get support?
 h2. What's new in Enlive?
 
 (most recent first)
+
+h3. Auto-reloading (1.1.2)
+
+<pre>
+  (net.cgrand.reload/auto-reload *ns*)
+</pre>
+
+Each time a resource or file used by a template/snippet is updated 
+the namespace is reloaded (as per @(require ... :reload)@).
+
+h3. Misc
+
+* Perf improvements
+* Fixes to @${vars}@ substitutions 
 
 h3. Pluggable parsers! (1.1.1)
 
