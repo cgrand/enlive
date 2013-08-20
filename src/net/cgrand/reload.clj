@@ -20,7 +20,6 @@
                     (let [ws (-> (java.nio.file.FileSystems/getDefault)
                                .newWatchService)
                           file-paths (atom #{})]
-                      (prn ws)
                       (future
                         (loop []
                           (let [wk (.take ws)
@@ -28,7 +27,6 @@
                                 paths (map (fn [^java.nio.file.WatchEvent e]
                                              (.resolve dir (.context e))) 
                                            (.pollEvents wk))]
-                            (prn paths)
                             (if (some @file-paths paths)
                               (do
                                 (.close ws)
