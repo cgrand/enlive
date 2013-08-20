@@ -94,7 +94,7 @@
   (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
 
 (defmethod register-resource! String [path]
-  (register-resource-spec! (.getResource (clojure.lang.RT/baseLoader) path)))
+  (register-resource! (.getResource (clojure.lang.RT/baseLoader) path)))
 
 (defmethod get-resource java.io.File
  [^java.io.File file loader]
