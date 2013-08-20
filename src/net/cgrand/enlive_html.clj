@@ -63,6 +63,11 @@
  "Loads a resource, using the specified loader. Returns a seq of nodes."
  (fn [res _] (type res)))
 
+(defmulti register-resource! type)
+
+(defmethod register-resource! :default [_]
+  #_(do nothing))
+
 (defn html-resource
  "Loads an HTML resource, returns a seq of nodes."
  ([resource]
@@ -88,9 +93,15 @@
  [path loader]
   (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
 
+(defmethod register-resource! String [path]
+  (register-resource-spec! (.getResource (clojure.lang.RT/baseLoader) path)))
+
 (defmethod get-resource java.io.File
  [^java.io.File file loader]
   (loader (java.io.FileInputStream. file)))
+
+(defmethod register-resource! java.io.File [^java.io.File file]
+  (register-resource! (.toURL file)))
 
 (defmethod get-resource java.io.Reader
  [reader loader]
@@ -99,6 +110,10 @@
 (defmethod get-resource java.io.InputStream
  [stream loader]
   (loader stream))
+
+(defmethod register-resource! java.net.URL 
+  [^java.net.URL url]
+  (alter-meta! *ns* update-in [:net.cgrand.reload/deps] (fnil conj #{}) url))
 
 (defmethod get-resource java.net.URL
  [^java.net.URL url loader]
@@ -586,8 +601,10 @@
   (let [[options source selector args & forms]
          (pad-unless map? {} (list* source selector args forms))]
     `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
-                   ~options)]
-       (snippet* (select (html-resource ~source opts#) ~selector) ~args ~@forms))))
+                   ~options)
+           source# ~source]
+       (register-resource! source#)
+       (snippet* (select (html-resource source# opts#) ~selector) ~args ~@forms))))
 
 (defmacro template
  "A template returns a seq of string."
@@ -595,8 +612,10 @@
    (let [[options source & body]
            (pad-unless map? {} (list* source args forms))]
      `(let [opts# (merge (ns-options (find-ns '~(ns-name *ns*)))
-                    ~options)]
-        (comp emit* (snippet* (html-resource ~source opts#) ~@body))))))
+                    ~options)
+            source# ~source]
+        (register-resource! source#)
+        (comp emit* (snippet* (html-resource source# opts#) ~@body))))))
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
