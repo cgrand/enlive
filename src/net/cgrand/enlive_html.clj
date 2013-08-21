@@ -997,6 +997,7 @@
                    node)]
         node)
     (sequential? node-spec) (flatmap nodify node-spec)
+    (map? node-spec) (update-in node-spec [:content] (comp nodify seq))
     :else (str node-spec)))
 
 (defn html
