@@ -205,7 +205,7 @@
   (persistent! (reduce f (transient []) coll)))
 
 (defn emit* [node-or-nodes]
-  (mapknitv emit (if (xml/tag? node-or-nodes) [node-or-nodes] node-or-nodes)))
+  (seq (mapknitv emit (if (xml/tag? node-or-nodes) [node-or-nodes] node-or-nodes))))
 
 (defn annotate [node]
   (cond
