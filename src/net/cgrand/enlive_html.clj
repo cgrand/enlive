@@ -17,12 +17,6 @@
 
 ;; EXAMPLES: see net.cgrand.enlive-html.examples
 
-(defn- iterate-while
- ([f x]
-    (when x (cons x (iterate-while f (f x)))))
- ([f x pred]
-    (cons x (iterate-while f (f x) pred))))
-
 ;; I/O stuff
 
 (def ^{:dynamic true} *options* {:parser tagsoup/parser})
@@ -420,7 +414,10 @@
 ;; core
 
 (defn- children-locs [loc]
-  (iterate-while z/right (z/down loc)))
+  (loop [v (transient []) loc (z/down loc)]
+    (if loc
+      (recur (conj! v loc) (z/right loc))
+      (persistent! v))))
 
 (defn- transform-loc [loc previous-state transformations t]
   (if-let [state (step previous-state loc)]
