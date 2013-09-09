@@ -681,6 +681,15 @@
                                        [k (substitute-vars v)])))
           :else node)))))
 
+(defn replace-words [words-to-replacements]
+  "Takes a map of words to replacement strings and replaces 
+   all occurences. Does not recurse, you have to pair it with an appropriate
+   selector."
+  (replace-vars
+    (java.util.regex.Pattern/compile (str "\\b(" (str/join "|" (map #(java.util.regex.Pattern/quote %) (keys words-to-replacements))) ")\\b")) 
+    words-to-replacements
+    identity))
+
 (defn set-attr
  "Assocs attributes on the selected element."
  [& kvs]

@@ -311,4 +311,6 @@
            (sniptest "<div><h1>untouched ${name}<p class=\"${class}\">hello ${name}"
       #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"})))
   (is (= ((replace-vars {:a "A" :b "B"}) "${a} ${b}")
-        "A B")))
+        "A B"))
+  (is (= ((replace-words {"Donald" "Mickey" "Duck" "Mouse"}) "Donald Duckling Duck")
+        "Mickey Duckling Mouse")))
