@@ -296,8 +296,15 @@
       [:div] (content (html [:p '({:tag :i :content ["big"]}
                                   {:tag :b :content ["world"]})])))
     (sniptest "<div>"
+      [:div] (content (html [:p {:tag :i :content ["big"]}
+                             {:tag :b :content ["world"]}])))
+    (sniptest "<div>"
       [:div] (content (html {:tag :p
-                             :content [[:i "big"] [:b "world"]]})))))
+                             :content [[:i "big"] [:b "world"]]}))))
+  (is-same "<div><a href='http://clojure.org/'><i>big</i><b>world</b></a>"
+    (sniptest "<div>"
+      [:div] (content (html [:a {:href "http://clojure.org/"} {:tag :i :content ["big"]}
+                             {:tag :b :content ["world"]}])))))
 
 (deftest replace-vars-test
   (is-same "<div><h1>untouched ${name}<p class=hello>hello world"

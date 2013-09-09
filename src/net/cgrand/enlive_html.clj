@@ -974,6 +974,9 @@
 
 
 ;; hiccup-style inline fragments
+(defn- attr-map? [node-spec]
+  (and (map? node-spec) (not (keyword? (:tag node-spec)))))
+
 (defn- nodify [node-spec]
   (cond
     (string? node-spec) node-spec
@@ -985,8 +988,8 @@
             classes (keep (fn [^String seg]
                             (when (= \. (.charAt seg 0)) (subs seg 1)))
                           segments)
-            node {:tag (keyword tag-name) :attrs (if (map? m) m {})
-                  :content (flatmap nodify (if (map? m) ms more))}
+            node {:tag (keyword tag-name) :attrs (if (attr-map? m) m {})
+                  :content (flatmap nodify (if (attr-map? m) ms more))}
             node (if id (assoc-in node [:attrs :id] id) node)
             node (if (seq classes)
                    (assoc-in node [:attrs :class]
