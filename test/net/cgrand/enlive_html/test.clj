@@ -290,6 +290,15 @@
     (sniptest "<div>"
       [:div] (content (html [:ul (for [s ["a" "b" "c"]] [:li s])])))))
 
+(deftest hiccup-mixed
+  (is-same "<div><p><i>big</i><b>world</b></p>"
+    (sniptest "<div>"
+      [:div] (content (html [:p '({:tag :i :content ["big"]}
+                                  {:tag :b :content ["world"]})])))
+    (sniptest "<div>"
+      [:div] (content (html {:tag :p
+                             :content [[:i "big"] [:b "world"]]})))))
+
 (deftest replace-vars-test
   (is-same "<div><h1>untouched ${name}<p class=hello>hello world"
            (sniptest "<div><h1>untouched ${name}<p class=\"${class}\">hello ${name}"
