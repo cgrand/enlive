@@ -36,7 +36,9 @@
                                   ::watch-fn nil)
                                 (require (ns-name ns) :reload)
                                 (auto-reload ns))
-                              (recur)))))
+                              (do
+                                (.reset wk)
+                                (recur))))))
                       (fn [path]
                         (swap! file-paths conj path)
                         (.register (.getParent path) ws 
