@@ -17,7 +17,7 @@ On the [Enlive Google Group](http://groups.google.com/group/enlive-clj)
 All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.4`:
 
 ```
-[enlive "1.1.4"]
+[enlive "1.1.5"]
 ```
 
 ## What's new in Enlive?
