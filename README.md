@@ -155,7 +155,7 @@ snippet whose output is serialized. Templates return a seq of strings to avoid
 building the whole string.
 
 Templates and snippets transform a source (specified as a path (to access
-resources on the classpath), a File, a Reader, an InputStream, an URI, an URL,
+resources on the classpath), a File, a Reader, an InputStream, a URI, a URL,
 an element or a seq of nodes).
 
 Next concept is `selectors`, which are used within snippets and
@@ -172,7 +172,7 @@ receive content obtained selector, and modify it in some way.
 
 If you want to go see the compiled version of the following steps all in
 one place, you can check out
-[https://github.com/ifesdjeen/enlive-ring](an exmaple Ring application)
+[an exmaple Ring application](https://github.com/ifesdjeen/enlive-ring).
 
 First thing you need to start, is to define your first template:
 

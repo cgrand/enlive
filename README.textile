@@ -190,7 +190,7 @@ snippet whose output is serialized. Templates return a seq of strings to avoid
 building the whole string.
 
 Templates and snippets transform a source (specified as a path (to access 
-resources on the classpath), a File, a Reader, an InputStream, an URI, an URL,
+resources on the classpath), a File, a Reader, an InputStream, a URI, a URL,
 an element or a seq of nodes).
 
 
