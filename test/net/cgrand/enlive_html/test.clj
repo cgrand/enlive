@@ -312,5 +312,7 @@
       #{[:p] [:p any-node]} (replace-vars {:name "world" :class "hello"})))
   (is (= ((replace-vars {:a "A" :b "B"}) "${a} ${b}")
         "A B"))
+  (is (= ((replace-vars {:a "A" :b 42}) "${a} ${b}")
+         "A 42"))
   (is (= ((replace-words {"Donald" "Mickey" "Duck" "Mouse"}) "Donald Duckling Duck")
         "Mickey Duckling Mouse")))

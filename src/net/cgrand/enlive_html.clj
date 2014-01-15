@@ -671,7 +671,7 @@
   ([m] (replace-vars #"\$\{\s*([^}]*[^\s}])\s*}" m))
   ([re m] (replace-vars re m keyword))
   ([re m f]
-    (let [replacement (comp m f second)
+    (let [replacement (comp str m f second)
           substitute-vars #(str/replace % re replacement)]
       (fn [node]
         (cond
