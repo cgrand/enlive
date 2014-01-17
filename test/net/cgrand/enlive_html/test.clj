@@ -273,7 +273,7 @@
   (.startsWith "<!DOCTYPE" (apply str (case-insensitive-doctype-template))))
 
 (deftest templates-return-seqs
-  (seq? (case-insensitive-doctype-template)))
+  (is (seq? (case-insensitive-doctype-template))))
 
 (deftest hiccup-like
   (is-same "<div><b>world"

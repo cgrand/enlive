@@ -644,9 +644,10 @@
     (fn [elt#]
       (assoc elt# :content (flatmap f# (:content elt#))))))
 
-(defn html-snippet [& values]
+(defn html-snippet
  "Concatenate values as a string and then parse it with tagsoup.
   html-snippet doesn't insert missing <html> or <body> tags."
+ [& values]
   (-> (apply str "<bogon>" values)
     java.io.StringReader. html-resource first :content))
 
@@ -681,10 +682,11 @@
                                        [k (substitute-vars v)])))
           :else node)))))
 
-(defn replace-words [words-to-replacements]
+(defn replace-words
   "Takes a map of words to replacement strings and replaces 
    all occurences. Does not recurse, you have to pair it with an appropriate
    selector."
+ [words-to-replacements] 
   (replace-vars
     (java.util.regex.Pattern/compile (str "\\b(" (str/join "|" (map #(java.util.regex.Pattern/quote %) (keys words-to-replacements))) ")\\b")) 
     words-to-replacements
