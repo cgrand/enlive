@@ -270,7 +270,7 @@
   [])
 
 (deftest case-insensitive-doctype-test
-  (.startsWith "<!DOCTYPE" (apply str (case-insensitive-doctype-template))))
+  (is (.startsWith (apply str (case-insensitive-doctype-template)) "<!DOCTYPE")))
 
 (deftest templates-return-seqs
   (is (seq? (case-insensitive-doctype-template))))
