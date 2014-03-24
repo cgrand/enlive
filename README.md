@@ -6,7 +6,7 @@ David Nolen wrote a [nice tutorial](http://github.com/swannodette/enlive-tutoria
 
 Another [tutorial](https://github.com/cgrand/enlive/wiki/Table-and-Layout-Tutorial,-Part-1:-The-Goal by Brian Marick) is by Brian Marick.
 
-There's a quickstart section in [Clojure Cookbook](https://github.com/clojure-cookbook/clojure-cookbook/blob/master/webapps/templating-with-enlive/templating-with-enlive.asciidoc).
+There's a quickstart section in [Clojure Cookbook](https://github.com/clojure-cookbook/clojure-cookbook/blob/master/07_webapps/7-11_enlive.asciidoc).
 
 ## Where do I get support?
 
