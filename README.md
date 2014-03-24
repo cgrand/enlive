@@ -6,7 +6,7 @@ David Nolen wrote a [nice tutorial](http://github.com/swannodette/enlive-tutoria
 
 Another [tutorial](https://github.com/cgrand/enlive/wiki/Table-and-Layout-Tutorial,-Part-1:-The-Goal by Brian Marick) is by Brian Marick.
 
-There's a quickstart section in [Clojure Cookbook](https://github.com/clojure-cookbook/clojure-cookbook/blob/master/07_webapps/7-11_enlive.asciidoc).
+There's a quickstart section in [Clojure Cookbook](https://github.com/clojure-cookbook/clojure-cookbook/blob/master/webapps/templating-with-enlive/templating-with-enlive.asciidoc).
 
 ## Where do I get support?
 
@@ -254,4 +254,126 @@ A step is a predicate, for example `:h1`, `:p.some-class` or even
 To select elements which match several predicates, you need to group
 predicates into a vector: *inside steps, vectors mean "and"*. This may seem
 confusing but the rule is simple: the outer-most vector hierarchically
-chains steps, a
+chains steps, all other vectors denote intersection (and) between steps.
+
+So `[:p (attr? :lang)]` is going to match any elements with a `lang` attribute
+inside a `:p` element. On the other hand, `[[:p (attr? :lang)]]` is going to match
+any `p` with a `lang` attribute.
+
+Similarly, sets group predicates in an union. Hence *inside steps, sets mean
+"or"*. So `[#{:div.class1 :div.class2}]` match every `div` which has either
+`class1` or `class2`. This can alternatively be written
+as `[[:div #{:.class1 .class2}]]`. Indeed you can have nested "ors" and "ands"
+which means nested sets and vectors.
+
+At the top level you can have a big "or" between selectors by wrapping several
+selectors in a set. `#{[:td :em] [:th :em]}` is going to match any `em` insides
+ either a `th` or a `td`. This is equivalent to `[#{:td :th} :em]`.
+
+### Selector Syntax
+
+See [syntax.html](http://enlive.cgrand.net/syntax.html)
+
+Some examples:
+
+```
+Enlive                                       CSS
+=======================================================
+[:div]                                       div
+[:body :script]                              body script
+#{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li
+[#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
+[[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
+[:div :> :*]                                 div > *
+[:div :> text-node]                          (text children of a div)
+[:div :> any-node]                           (all children (including text nodes and comments) of a div)
+{[:dt] [:dl]}                                (fragments starting by DT and ending at the *next* DD)
+```
+
+## The `at` form
+
+The `at` form is the most important form in Enlive. There are implicit `at`
+forms in `snippet` and `template`.
+
+```clojure
+(at a-node
+  [:a :selector] a-transformation
+  [:another :selector] another-transformation
+  ;; ...
+  )
+```
+
+The right-hand value of a rule can be `nil`. It's the idiomatic way to remove an
+element.
+
+Transformations are closures which take one arg (the selected node) and return
+`nil`, another node or an arbitrarily nested collection of nodes.
+
+Rules are applied top-down: the first rule transforms the whole tree and the
+resulting tree is passed to the next rules.
+
+## Transformations
+
+A transformation is a function that returns either a node or collection of node.
+
+Enlive defines several helper functions:
+```clojure
+;; Replaces the content of the element. Values can be nodes or collection of nodes.
+(content "xyz" a-node "abc")
+
+;; Replaces the content of the element. Values are strings containing html code.
+(html-content "<blink>please no</blink>")
+
+;; Wraps selected node into the given tag
+(wrap :div)
+;; or
+(wrap :div {:class "foo"})
+
+;; Opposite to wrap, returns the content of the selected node
+unwrap
+
+;; Sets given key value pairs as attributes for selected node
+(set-attr :attr1 "val1" :attr2 "val2")
+
+;; Removes attribute(s) from selected node
+(remove-attr :attr1 :attr2)
+
+;; Adds class(es) to the selected node
+(add-class "foo" "bar")
+
+;; Removes class(es) from the selected node
+(remove-class "foo" "bar")
+
+;; Chains (composes) several transformations. Applies functions from left to right.
+(do-> transformation1 transformation2)
+
+;; Clones the selected node, applying transformations to it.
+(clone-for [item items] transformation)
+;; or
+(clone-for [item items]
+  selector1 transformation1
+  selector2 transformation2)
+
+;; Appends the values to the content of the selected element.
+(append "xyz" a-node "abc")
+
+;; Prepends the values to the content of the selected element.
+(prepend "xyz" a-node "abc")
+
+;; Inserts the values after the current selection (node or fragment).
+(after "xyz" a-node "abc")
+
+;; Inserts the values before the current selection (node or fragment).
+(before "xyz" a-node "abc")
+
+;; Replaces the current selection (node or fragment).
+(substitute "xyz" a-node "abc")
+
+;; Takes all nodes (under the current element) matched by src-selector, removes
+;; them and combines them with the elements matched by dest-selector.
+(move [:.footnote] [:#footnotes] content)
+```
+
+## Known limitations/problems
+
+* No namespaces support (hence unsuitable for most XML)
