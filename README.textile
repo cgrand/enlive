@@ -72,7 +72,7 @@ The following selector + function is going to replace any @${var}@ in text *and 
 h3. hiccup-style helper (1.1.0)
 
 <pre>
-(content (html [:h3#hello "Hello worls"]))
+(content (html [:h3#hello "Hello world"]))
 </pre>
 
 
