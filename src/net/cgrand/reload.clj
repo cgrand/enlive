@@ -48,6 +48,6 @@
 
 (defmethod watch-url "file" [^java.net.URL url ns]
   (let [fs (java.nio.file.FileSystems/getDefault)
-        path (.getPath fs (.getPath url) no-strings)
+        path (.getPath fs (.getAbsolutePath (java.io.File. (.toURI url))) no-strings)
         ws (watch-service ns)]
     (ws path)))
