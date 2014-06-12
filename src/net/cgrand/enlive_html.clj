@@ -999,11 +999,10 @@
             classes (keep (fn [^String seg]
                             (when (= \. (.charAt seg 0)) (subs seg 1)))
                           segments)
-            node {:tag (keyword tag-name) :attrs (if (attr-map? m) m {})
+            node {:tag (keyword tag-name) :attrs (if (attr-map? m)
+                                                   (into {} (filter second m))
+                                                   {})
                   :content (flatmap nodify (if (attr-map? m) ms more))}
-            ;; remove boolean attrs that are nil/false
-            falsey-boolean-attrs (remove (:attrs node) #{:checked :selected :disabled})
-            node (update-in node [:attrs] #(apply dissoc % falsey-boolean-attrs))
             node (if id (assoc-in node [:attrs :id] id) node)
             node (if (seq classes)
                    (assoc-in node [:attrs :class]
