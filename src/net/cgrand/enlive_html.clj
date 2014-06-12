@@ -1001,6 +1001,9 @@
                           segments)
             node {:tag (keyword tag-name) :attrs (if (attr-map? m) m {})
                   :content (flatmap nodify (if (attr-map? m) ms more))}
+            ;; remove boolean attrs that are nil/false
+            falsey-boolean-attrs (remove (:attrs node) #{:checked :selected :disabled})
+            node (update-in node [:attrs] #(apply dissoc % falsey-boolean-attrs))
             node (if id (assoc-in node [:attrs :id] id) node)
             node (if (seq classes)
                    (assoc-in node [:attrs :class]
