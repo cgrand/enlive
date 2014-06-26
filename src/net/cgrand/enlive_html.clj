@@ -1000,7 +1000,7 @@
                             (when (= \. (.charAt seg 0)) (subs seg 1)))
                           segments)
             node {:tag (keyword tag-name) :attrs (if (attr-map? m)
-                                                   (into {} (filter second m))
+                                                   (into {} (filter val m))
                                                    {})
                   :content (flatmap nodify (if (attr-map? m) ms more))}
             node (if id (assoc-in node [:attrs :id] id) node)
