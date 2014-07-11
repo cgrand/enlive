@@ -9,6 +9,12 @@
   (doseq [dep (-> ns meta ::deps)]
     (watch-url dep ns)))
 
+(defn- remove-lib
+  "Remove lib's namespace and remove lib from the set of loaded libs."
+  [lib]
+  (remove-ns lib)
+  (dosync (alter @#'clojure.core/*loaded-libs* disj lib)))
+
 (defn- watch-service [ns]
   (::watch-fn 
     (alter-meta!
