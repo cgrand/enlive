@@ -9,12 +9,6 @@
   (doseq [dep (-> ns meta ::deps)]
     (watch-url dep ns)))
 
-(defn- remove-lib
-  "Remove lib's namespace and remove lib from the set of loaded libs."
-  [lib]
-  (remove-ns lib)
-  (dosync (alter @#'clojure.core/*loaded-libs* disj lib)))
-
 (defn- watch-service [ns]
   (::watch-fn 
     (alter-meta!
@@ -32,16 +26,17 @@
                                 ^java.nio.file.Path dir (.watchable wk)
                                 paths (map (fn [^java.nio.file.WatchEvent e]
                                              (.resolve dir (.context e))) 
-                                           (.pollEvents wk))]
+                                           (.pollEvents wk))
+                                name (ns-name ns)]
                             (if (some @file-paths paths)
                               (do
                                 (.close ws)
                                 ;; file updates concurrent with reloading may be skipped
-                                (println "Reloading" (ns-name ns))
-                                (alter-meta! ns assoc ::deps #{}
-                                  ::watch-fn nil)
-                                (require (ns-name ns) :reload)
-                                (auto-reload ns))
+                                (alter-meta! ns assoc
+                                             ::deps #{}
+                                             ::watch-fn nil)
+                                (require name :reload)
+                                (auto-reload (find-ns name)))
                               (do
                                 (.reset wk)
                                 (recur))))))
