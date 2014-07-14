@@ -32,6 +32,7 @@
                               (do
                                 (.close ws)
                                 ;; file updates concurrent with reloading may be skipped
+                                (println "Reloading" name)
                                 (alter-meta! ns assoc
                                              ::deps #{}
                                              ::watch-fn nil)
