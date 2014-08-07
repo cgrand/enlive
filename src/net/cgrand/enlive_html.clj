@@ -10,6 +10,7 @@
 
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
+  (:refer-clojure :exclude [flatmap])
   (:require [net.cgrand.tagsoup :as tagsoup])
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.string :as str])
