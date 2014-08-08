@@ -26,16 +26,18 @@
                                 ^java.nio.file.Path dir (.watchable wk)
                                 paths (map (fn [^java.nio.file.WatchEvent e]
                                              (.resolve dir (.context e))) 
-                                           (.pollEvents wk))]
+                                           (.pollEvents wk))
+                                name (ns-name ns)]
                             (if (some @file-paths paths)
                               (do
                                 (.close ws)
                                 ;; file updates concurrent with reloading may be skipped
-                                (println "Reloading" (ns-name ns))
-                                (alter-meta! ns assoc ::deps #{}
-                                  ::watch-fn nil)
-                                (require (ns-name ns) :reload)
-                                (auto-reload ns))
+                                (println "Reloading" name)
+                                (alter-meta! ns assoc
+                                             ::deps #{}
+                                             ::watch-fn nil)
+                                (require name :reload)
+                                (auto-reload (find-ns name)))
                               (do
                                 (.reset wk)
                                 (recur))))))
@@ -44,10 +46,12 @@
                         (.register (.getParent path) ws 
                           (into-array [java.nio.file.StandardWatchEventKinds/ENTRY_MODIFY]))))))))))
 
-(def ^:private no-strings (into-array String nil))
+(defn- as-path [^java.net.URL url]
+  (let [uri (java.net.URI. (.toExternalForm url))
+        file (java.io.File. uri)]
+    (.toPath file)))
 
 (defmethod watch-url "file" [^java.net.URL url ns]
-  (let [fs (java.nio.file.FileSystems/getDefault)
-        path (.getPath fs (.getPath url) no-strings)
+  (let [path (as-path url)
         ws (watch-service ns)]
     (ws path)))
