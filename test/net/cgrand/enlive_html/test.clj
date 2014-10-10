@@ -257,6 +257,12 @@
 (deftest select-test
   (is (= 3 (-> "<html><body><h1>hello</h1>" html-snippet (select [:*]) count))))
 
+(deftest zipselect-like-select-test
+  (is-same (-> "<html><body><h1>hello</h1>" html-snippet (select [:h1]))
+           (-> "<html><body><h1>hello</h1>" html-snippet (#(map xml/xml-zip %)) (zip-select [:h1]) first z/node))
+  (is-same (-> "<h1>hello</h1>world<h2>" html-snippet (select {[:h1] [:h2]}) first)
+           (-> "<h1>hello</h1>world<h2>" html-snippet (#(map xml/xml-zip %)) (zip-select {[:h1] [:h2]}) first (#(map z/node %)))))
+
 (deftest emit*-test
   (is (= "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')</script></h1>"
          (sniptest "<h1>hello&lt;<script>if (im < bad) document.write('&lt;')"))))
