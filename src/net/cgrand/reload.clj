@@ -47,7 +47,6 @@
 (def ^:private no-strings (into-array String nil))
 
 (defmethod watch-url "file" [^java.net.URL url ns]
-  (let [fs (java.nio.file.FileSystems/getDefault)
-        path (.getPath fs (.getPath url) no-strings)
+  (let [path (java.nio.file.Paths/get (.toURI url))
         ws (watch-service ns)]
     (ws path)))
