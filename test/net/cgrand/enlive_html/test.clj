@@ -12,7 +12,7 @@
   (:use net.cgrand.enlive-html)
   (:require [net.cgrand.xml :as xml])
   (:require [clojure.zip :as z])
-  (:use [clojure.test :only [deftest is are]]))
+  (:use [clojure.test :only [deftest is are run-all-tests]]))
 
 ;; test utilities
 (defn- normalize [x]

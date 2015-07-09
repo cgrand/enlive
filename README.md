@@ -14,15 +14,19 @@ On the [Enlive Google Group](http://groups.google.com/group/enlive-clj)
 
 ## Artifact
 
-All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.5`:
+All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.6`:
 
 ```
-[enlive "1.1.5"]
+[enlive "1.1.6"]
 ```
 
 ## What's new in Enlive?
 
 (most recent first)
+
+1.1.6:
+- ADD: exception message when html-resource not found.
+- FIX: auto-reload on windows (also works with chestnut).
 
 ### Auto-reloading (1.1.2)
 
