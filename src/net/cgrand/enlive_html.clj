@@ -992,7 +992,7 @@
 (defn- nodify [node-spec]
   (cond
     (string? node-spec) node-spec
-    (vector? node-spec)
+    (and (vector? node-spec) (not (map? (first node-spec)))) 
       (let [[tag & [m & ms :as more]] node-spec
             [tag-name & segments] (.split (name tag) "(?=[#.])")
             id (some (fn [^String seg]
