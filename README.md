@@ -281,7 +281,7 @@ selectors in a set. `#{[:td :em] [:th :em]}` is going to match any `em` insides
 
 ### Selector Syntax
 
-See [syntax.html](http://enlive.cgrand.net/syntax.html)
+See [syntax.html](https://github.com/cgrand/enlive/wiki/Enlive-selectors-syntax)
 
 Some examples:
 
