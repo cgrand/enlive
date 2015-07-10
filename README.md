@@ -10,7 +10,8 @@ There's a quickstart section in [Clojure Cookbook](https://github.com/clojure-co
 
 ## Where do I get support?
 
-On the [Enlive Google Group](http://groups.google.com/group/enlive-clj)
+On the [Enlive Google Group](http://groups.google.com/group/enlive-clj).
+Please consider a discussion on the group before opening an issue on github.
 
 ## Artifact
 
@@ -43,6 +44,10 @@ namespace is reloaded (as per `(require ... :reload)`).
   * Fixes to `${vars}` substitutions
 
 ### Pluggable parsers! (1.1.1)
+
+WYGIWTPF (What you get is what the parser fixes).
+Jsoup is more well-behaved than tagsoup and follows HTML5 parsing algorithm.
+See [this workaround](https://github.com/cgrand/enlive/wiki/JSoup-with-html-snippet) to use JSoup with html-snippet.
 
 The `*parser*` dynamic var controls the parser to be used by `html-resource` at
 runtime. (or you can pass `{:parser XXX}` as an additional arg).
