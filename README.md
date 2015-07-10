@@ -15,15 +15,19 @@ Please consider a discussion on the group before opening an issue on github.
 
 ## Artifact
 
-All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.6`:
+All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.7-SNAPSHOT`:
 
 ```
-[enlive "1.1.6"]
+[enlive "1.1.7-SNAPSHOT"]
 ```
 
 ## What's new in Enlive?
 
 (most recent first)
+
+1.1.7:
+- ADD: compiled against clojure 1.7
+- FIX: several minor issues and documentation.
 
 1.1.6:
 - ADD: exception message when html-resource not found.

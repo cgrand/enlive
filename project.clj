@@ -1,4 +1,4 @@
-(defproject enlive "1.1.6"
+(defproject enlive "1.1.7-SNAPSHOT"
   :min-lein-version "2.0.0"
   :description "a HTML selector-based (à la CSS) templating and transformation system for Clojure"
   :url "http://github.com/cgrand/enlive/"
