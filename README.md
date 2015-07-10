@@ -272,7 +272,7 @@ any `p` with a `lang` attribute.
 Similarly, sets group predicates in an union. Hence *inside steps, sets mean
 "or"*. So `[#{:div.class1 :div.class2}]` match every `div` which has either
 `class1` or `class2`. This can alternatively be written
-as `[[:div #{:.class1 .class2}]]`. Indeed you can have nested "ors" and "ands"
+as `[[:div #{:.class1 :.class2}]]`. Indeed you can have nested "ors" and "ands"
 which means nested sets and vectors.
 
 At the top level you can have a big "or" between selectors by wrapping several
