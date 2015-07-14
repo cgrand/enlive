@@ -10,19 +10,25 @@ There's a quickstart section in [Clojure Cookbook](https://github.com/clojure-co
 
 ## Where do I get support?
 
-On the [Enlive Google Group](http://groups.google.com/group/enlive-clj)
+On the [Enlive Google Group](http://groups.google.com/group/enlive-clj).
+Please consider a discussion on the group before opening an issue on github.
 
 ## Artifact
 
-All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.6`:
+All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.7`:
 
 ```
-[enlive "1.1.6"]
+[enlive "1.1.7"]
 ```
 
 ## What's new in Enlive?
 
 (most recent first)
+
+1.1.7:
+- ADD: compiled against clojure 1.7
+- ADD: updated dep: jsoup 1.8.2
+- FIX: several minor issues and documentation.
 
 1.1.6:
 - ADD: exception message when html-resource not found.
@@ -43,6 +49,10 @@ namespace is reloaded (as per `(require ... :reload)`).
   * Fixes to `${vars}` substitutions
 
 ### Pluggable parsers! (1.1.1)
+
+WYGIWTPF (What you get is what the parser fixes).
+Jsoup is more well-behaved than tagsoup and follows HTML5 parsing algorithm.
+See [this workaround](https://github.com/cgrand/enlive/wiki/JSoup-with-html-snippet) to use JSoup with html-snippet.
 
 The `*parser*` dynamic var controls the parser to be used by `html-resource` at
 runtime. (or you can pass `{:parser XXX}` as an additional arg).
@@ -267,7 +277,7 @@ any `p` with a `lang` attribute.
 Similarly, sets group predicates in an union. Hence *inside steps, sets mean
 "or"*. So `[#{:div.class1 :div.class2}]` match every `div` which has either
 `class1` or `class2`. This can alternatively be written
-as `[[:div #{:.class1 .class2}]]`. Indeed you can have nested "ors" and "ands"
+as `[[:div #{:.class1 :.class2}]]`. Indeed you can have nested "ors" and "ands"
 which means nested sets and vectors.
 
 At the top level you can have a big "or" between selectors by wrapping several
@@ -276,7 +286,7 @@ selectors in a set. `#{[:td :em] [:th :em]}` is going to match any `em` insides
 
 ### Selector Syntax
 
-See [syntax.html](http://enlive.cgrand.net/syntax.html)
+See [syntax.html](https://github.com/cgrand/enlive/wiki/Enlive-selectors-syntax)
 
 Some examples:
 
