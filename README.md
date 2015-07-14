@@ -15,10 +15,10 @@ Please consider a discussion on the group before opening an issue on github.
 
 ## Artifact
 
-All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.7-SNAPSHOT`:
+All artifacts are published to [clojars](https://clojars.org/enlive). Latest version is `1.1.7`:
 
 ```
-[enlive "1.1.7-SNAPSHOT"]
+[enlive "1.1.7"]
 ```
 
 ## What's new in Enlive?
@@ -27,6 +27,7 @@ All artifacts are published to [clojars](https://clojars.org/enlive). Latest ver
 
 1.1.7:
 - ADD: compiled against clojure 1.7
+- ADD: updated dep: jsoup 1.8.2
 - FIX: several minor issues and documentation.
 
 1.1.6:
