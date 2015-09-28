@@ -78,7 +78,7 @@ text __and attributes__ by the value found in the map (or any function).
 ### hiccup-style helper (1.1.0)
 
 ```clj
-(content (html [:h3#hello "Hello worls"]))
+(content (html [:h3#hello "Hello world"]))
 ```
 
 ### older stuff
