@@ -952,6 +952,7 @@
  [node]
   (cond
     (string? node) node
+    (= :br (:tag node)) "\n"
     (xml/tag? node) (apply str (map text (:content node)))
     :else ""))
 
