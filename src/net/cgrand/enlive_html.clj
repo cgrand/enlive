@@ -507,48 +507,48 @@
                           [(if (static-selector? s) (cacheable s) s) t])))
            `(transform ~(if (static-selector? s) (cacheable s) s) ~t)))))
 
-(defn zip-select-nodes* [locs state]
-  (letfn [(select1 [loc previous-state]
-            (when-let [state (step previous-state loc)]
-              (let [descendants (mapcat #(select1 % state) (children-locs loc))]
-                (if (accept-key state) (cons loc descendants) descendants))))]
-    (mapcat #(select1 % state) locs)))
+(defn zip-select-nodes* [locs selector]
+  (let [state (automaton selector)]
+    (letfn [(select1 [loc previous-state]
+              (when-let [state (step previous-state loc)]
+                (let [descendants (mapcat #(select1 % state) (children-locs loc))]
+                  (if (accept-key state) (cons loc descendants) descendants))))]
+      (mapcat #(select1 % state) locs))))
 
 (defn select-nodes* [nodes selector]
-  (let [state (automaton selector)]
-    (map z/node (zip-select-nodes* (map xml/xml-zip nodes) state))))
+  (map z/node (zip-select-nodes* (map xml/xml-zip nodes) selector)))
 
-(defn zip-select-fragments* [locs state-from state-to]
-  (letfn [(select1 [locs previous-state-from previous-state-to]
-            (when (and previous-state-from previous-state-to)
-              (let [states-from (map #(step previous-state-from %) locs)
-                    states-to (map #(step previous-state-to %) locs)
-                    descendants (reduce into []
-                                  (map #(select1 (children-locs %1) %2 %3)
-                                    locs states-from states-to))]
-                (loop [fragments descendants fragment nil
-                       locs locs states-from states-from states-to states-to]
-                  (if-let [[loc & etc] (seq locs)]
-                    (if fragment
-                      (let [fragment (conj fragment loc)]
-                        (if (accept-key (first states-to))
-                          (recur (conj fragments fragment) nil etc
-                            (rest states-from) (rest states-to))
-                          (recur fragments fragment etc
-                            (rest states-from) (rest states-to))))
-                      (if (accept-key (first states-from))
-                        (recur fragments [] locs states-from states-to)
-                        (recur fragments nil etc
-                          (rest states-from) (rest states-to))))
-                    fragments)))))]
-    (select1 locs state-from state-to)))
-
-(defn select-fragments* [nodes selector]
+(defn zip-select-fragments* [locs selector]
   (let [[selector-from selector-to] (first selector)
         state-from (automaton selector-from)
         state-to (automaton selector-to)]
-    (map #(map z/node %)
-      (zip-select-fragments* (map xml/xml-zip nodes) state-from state-to))))
+    (letfn [(select1 [locs previous-state-from previous-state-to]
+              (when (and previous-state-from previous-state-to)
+                (let [states-from (map #(step previous-state-from %) locs)
+                      states-to (map #(step previous-state-to %) locs)
+                      descendants (reduce into []
+                                          (map #(select1 (children-locs %1) %2 %3)
+                                               locs states-from states-to))]
+                  (loop [fragments descendants fragment nil
+                         locs locs states-from states-from states-to states-to]
+                    (if-let [[loc & etc] (seq locs)]
+                      (if fragment
+                        (let [fragment (conj fragment loc)]
+                          (if (accept-key (first states-to))
+                            (recur (conj fragments fragment) nil etc
+                                   (rest states-from) (rest states-to))
+                            (recur fragments fragment etc
+                                   (rest states-from) (rest states-to))))
+                        (if (accept-key (first states-from))
+                          (recur fragments [] locs states-from states-to)
+                          (recur fragments nil etc
+                                 (rest states-from) (rest states-to))))
+                      fragments)))))]
+      (select1 locs state-from state-to))))
+
+(defn select-fragments* [nodes selector]
+  (map #(map z/node %)
+       (zip-select-fragments* (map xml/xml-zip nodes) selector)))
 
 (defn select
  "Returns the seq of nodes or fragments matched by the specified selector."
@@ -562,8 +562,8 @@
  "Returns the seq of locs matched by the specified selector."
  [locs selector]
   (if (node-selector? selector)
-    (apply zip-select-nodes* locs selector)
-    (apply zip-select-fragments* locs selector)))
+    (zip-select-nodes* locs selector)
+    (zip-select-fragments* locs selector)))
 
 
 ;; main macros
