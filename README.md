@@ -285,7 +285,7 @@ Enlive                                       CSS
 =======================================================
 [:div]                                       div
 [:body :script]                              body script
-#{[:ul.outline :> :li] [:ol.outline :> li]}  ul.outline > li, ol.outline > li
+#{[:ul.outline :> :li] [:ol.outline :> :li]} ul.outline > li, ol.outline > li
 [#{:ul.outline :ol.outline} :> :li]          ul.outline > li, ol.outline > li
 [[#{:ul :ol} :.outline] :> :li]              ul.outline > li, ol.outline > li
 [:div :> :*]                                 div > *
