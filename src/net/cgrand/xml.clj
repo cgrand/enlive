@@ -8,9 +8,9 @@
 
 (ns net.cgrand.xml
   (:require [clojure.zip :as z])
-  (:import (org.xml.sax ContentHandler Attributes SAXException XMLReader)
+  (:import (org.xml.sax Attributes )
            (org.xml.sax.ext DefaultHandler2)
-           (javax.xml.parsers SAXParser SAXParserFactory)))
+           (javax.xml.parsers SAXParserFactory)))
 
 (defstruct element :tag :attrs :content)
 
@@ -82,7 +82,10 @@
    .newSAXParser
    (doto
      (.setProperty "http://xml.org/sax/properties/lexical-handler" ch))
-   (.parse s ch)))
+   (.parse
+     ^java.io.InputStream s                   ; actual type => java.io.BufferedInputStream
+     ^org.xml.sax.helpers.DefaultHandler ch   ; actual type => net.cgrand.xml.proxy$org.xml.sax.ext.DefaultHandler2
+   )))
 
 (defn parse
   "Parses and loads the source s, which can be a File, InputStream or
@@ -100,3 +103,14 @@
       (map #(if (instance? clojure.lang.IObj %) (vary-meta % merge @metadata) %)
         (-> @loc z/root :content)))))
          
+
+
+
+
+
+
+
+
+
+
+

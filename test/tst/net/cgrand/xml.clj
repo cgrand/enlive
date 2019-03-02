@@ -1,13 +1,11 @@
 (ns tst.net.cgrand.xml
-  (:use tupelo.core tupelo.test)
+  (:use clojure.test)
   (:require
-    [net.cgrand.xml :as xml]
-    [tupelo.string :as ts]
-  ))
+    [clojure.java.io :as io]
+    [net.cgrand.xml :as xml] ))
 
-
-(dotest
-  (let [xml-str "<foo>
+(deftest t-xml-7
+  (let [xml-str  "<foo>
                     <name>John</name>
                     <address>1 hacker way</address>
                     <phone></phone>
@@ -23,9 +21,38 @@
                     </college>
                   </foo> "
 
-        xml-data (xml/parse (ts/string->stream xml-str))
-        ]
-    (spyx-pretty xml-data)
-
-    ))
+        xml-data (xml/parse (io/input-stream (.getBytes xml-str))) ]
+    (is (= xml-data
+          [{:tag   :foo,
+            :attrs nil,
+            :content
+             [ "\n                    "
+              {:tag :name, :attrs nil, :content ["John"]}
+              "\n                    "
+              {:tag :address, :attrs nil, :content ["1 hacker way"]}
+              "\n                    "
+              {:tag :phone, :attrs nil, :content nil}
+              "\n                    "
+              {:tag   :school,
+               :attrs nil,
+               :content
+                ["\n                        "
+                 {:tag :name, :attrs nil, :content ["Joe"]}
+                 "\n                        "
+                 {:tag :state, :attrs nil, :content ["CA"]}
+                 "\n                        "
+                 {:tag :type, :attrs nil, :content ["FOOBAR"]}
+                 "\n                    "]}
+              "\n                    "
+              {:tag   :college,
+               :attrs nil,
+               :content
+                ["\n                        "
+                 {:tag :name, :attrs nil, :content ["mit"]}
+                 "\n                        "
+                 {:tag :address, :attrs nil, :content nil}
+                 "\n                        "
+                 {:tag :state, :attrs nil, :content ["Denial"]}
+                 "\n                    "]}
+              "\n                  "]}])) ))
 
