@@ -83,7 +83,7 @@
    (doto
      (.setProperty "http://xml.org/sax/properties/lexical-handler" ch))
    (.parse
-     ^java.io.InputStream s                   ; actual type => java.io.BufferedInputStream
+     ^java.io.InputStream                s    ; actual type => java.io.BufferedInputStream
      ^org.xml.sax.helpers.DefaultHandler ch   ; actual type => net.cgrand.xml.proxy$org.xml.sax.ext.DefaultHandler2
    )))
 
