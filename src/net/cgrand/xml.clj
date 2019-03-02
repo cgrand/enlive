@@ -102,15 +102,3 @@
       (startparse s content-handler)
       (map #(if (instance? clojure.lang.IObj %) (vary-meta % merge @metadata) %)
         (-> @loc z/root :content)))))
-         
-
-
-
-
-
-
-
-
-
-
-
