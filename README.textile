@@ -21,6 +21,7 @@ h2. Where do I get support?
 
 "On the group":http://groups.google.com/group/enlive-clj
 
+Here are [Generated API docs](https://cgrand.github.io/enlive/).
 
 h2. What's new in Enlive?
 
