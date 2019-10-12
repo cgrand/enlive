@@ -290,6 +290,16 @@
     (sniptest "<div>"
       [:div] (content (html [:ul (for [s ["a" "b" "c"]] [:li s])])))))
 
+(deftest hiccup-boolean-attrs
+  (is-same "<div><input type=checkbox></input></div>"
+    (sniptest "<div>"
+      [:div] (content (html [:input {:type "checkbox"
+                                     :checked false}]))))
+  (is-same "<div><input type=checkbox checked=checked></input></div>"
+    (sniptest "<div>"
+      [:div] (content (html [:input {:type "checkbox"
+                                     :checked "checked"}])))))
+
 (deftest hiccup-mixed
   (is-same "<div><p><i>big</i><b>world</b></p>"
     (sniptest "<div>"
