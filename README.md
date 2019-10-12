@@ -2,7 +2,7 @@
 
 Enlive is a selector-based (à la CSS) templating library for Clojure.
 
-David Nolen wrote a [nice tutorial](http://github.com/swannodette/enlive-tutorial/).
+David Nolen wrote a [nice tutorial](http://github.com/swannodette/enlive-tutorial/) which is currently broken and could do with some love.
 
 Another [tutorial](https://github.com/cgrand/enlive/wiki/Table-and-Layout-Tutorial,-Part-1:-The-Goal) is by Brian Marick.
 
