@@ -617,8 +617,11 @@
 
 (defmacro defsnippet
  "Define a named snippet -- equivalent to (def name (snippet source selector args ...))."
- [name source selector args & forms]
- `(def ~name (snippet ~source ~selector ~args ~@forms)))
+ [name source selector doc-string? args & forms]
+ (if (string? doc-string?)
+   `(def ~name ~doc-string? (snippet ~source ~selector ~args ~@forms))
+   ;; doc-string? is the args, the forms are args + forms
+   `(def ~name (snippet ~source ~selector ~doc-string? ~@(cons args forms)))))
 
 (defmacro deftemplate
  "Defines a template as a function that returns a seq of strings."
