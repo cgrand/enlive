@@ -106,7 +106,7 @@
  [stream loader]
   (loader stream))
 
-(defmethod register-resource! java.net.URL 
+(defmethod register-resource! java.net.URL
   [^java.net.URL url]
   (alter-meta! *ns* update-in [:net.cgrand.reload/deps] (fnil conj #{}) url))
 
@@ -142,7 +142,7 @@
   ([t a b c d e] (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e)))
   ([t a b c d e f] (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e) (conj! f)))
   ([t a b c d e f g] (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e) (conj! f) (conj! g)))
-  ([t a b c d e f g & more] 
+  ([t a b c d e f g & more]
     (reduce conj! (-> t (conj! a) (conj! b) (conj! c) (conj! d) (conj! e) (conj! f) (conj! g))
       more)))
 
@@ -684,12 +684,12 @@
           :else node)))))
 
 (defn replace-words
-  "Takes a map of words to replacement strings and replaces 
+  "Takes a map of words to replacement strings and replaces
    all occurences. Does not recurse, you have to pair it with an appropriate
    selector."
- [words-to-replacements] 
+ [words-to-replacements]
   (replace-vars
-    (java.util.regex.Pattern/compile (str "\\b(" (str/join "|" (map #(java.util.regex.Pattern/quote %) (keys words-to-replacements))) ")\\b")) 
+    (java.util.regex.Pattern/compile (str "\\b(" (str/join "|" (map #(java.util.regex.Pattern/quote %) (keys words-to-replacements))) ")\\b"))
     words-to-replacements
     identity))
 
