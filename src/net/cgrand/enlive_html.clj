@@ -10,6 +10,7 @@
 
 (ns net.cgrand.enlive-html
   "enlive-html is a selector-based transformation and extraction engine."
+  (:import java.util.MissingResourceException)
   (:refer-clojure :exclude [flatmap])
   (:require [net.cgrand.tagsoup :as tagsoup])
   (:require [net.cgrand.xml :as xml])
@@ -86,7 +87,9 @@
 
 (defmethod get-resource String
  [path loader]
-  (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path) loader))
+  (if-let [resource-stream (-> (clojure.lang.RT/baseLoader) (.getResourceAsStream path))]
+    (loader resource-stream)
+    (throw (java.util.MissingResourceException. "HTML Resource not found (Hint: it might be missing from CLASSPATH)" "java.io.InputStream" path))))
 
 (defmethod register-resource! String [path]
   (register-resource! (.getResource (clojure.lang.RT/baseLoader) path)))
